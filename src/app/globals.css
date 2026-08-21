@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0f1115;
+  --color-foreground: #f8fafc;
+  --color-primary: #ef4444; /* Vibrant Red/Orange for food appetite */
+  --color-primary-dark: #dc2626;
+  --color-surface: #1e2128;
+  --color-surface-hover: #292d36;
+  --color-border: #334155;
+}
+
+@layer base {
+  :root {
+    --background: #0f1115;
+    --foreground: #f8fafc;
+    --primary: #ef4444;
+    --primary-foreground: #ffffff;
+    --surface: #1e2128;
+    --surface-hover: #292d36;
+    --border: #334155;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--surface-hover);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background: rgba(30, 33, 40, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .btn-primary {
+    @apply bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 active:scale-95;
+    box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.39);
+  }
+  
+  .btn-secondary {
+    @apply bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 active:scale-95;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
