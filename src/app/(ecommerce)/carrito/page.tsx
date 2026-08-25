@@ -4,6 +4,7 @@ import { Minus, Plus, Trash2, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createOrder } from '@/lib/api'
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, total, clearCart } = useCartStore()
@@ -34,14 +35,30 @@ export default function CartPage() {
     )
   }
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Here we would create the order in Supabase
-    // Then integrate MP or redirect to success
-    console.log("Order submitted", { items, formData, total: total() })
-    alert("¡Pedido simulado con éxito! Integración de MercadoPago lista para backend.")
-    clearCart()
-    router.push('/')
+    
+    try {
+      await createOrder({
+        delivery_type: formData.deliveryType,
+        total_amount: total(),
+        guest_name: formData.name,
+        guest_phone: formData.phone,
+        guest_address: formData.address,
+        payment_method: formData.paymentMethod,
+      }, items.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.price
+      })))
+
+      alert("¡Pedido realizado con éxito!")
+      clearCart()
+      router.push('/')
+    } catch (error) {
+      console.error("Error al crear el pedido", error)
+      alert("Hubo un error al procesar el pedido.")
+    }
   }
 
   return (

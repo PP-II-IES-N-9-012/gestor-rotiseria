@@ -1,23 +1,14 @@
-import { supabase } from '@/lib/supabase'
+import { getProducts } from '@/lib/api'
 import AddToCartButton from './components/AddToCartButton'
 
 export const revalidate = 0
 
-// Mock data as fallback
-const mockProducts = [
-  { id: '1', code: 'EMP-CAR', name: 'Empanada de Carne', description: 'Carne cortada a cuchillo con cebolla, huevo duro y aceitunas.', price: 1500, category: 'Empanadas', image_url: 'https://images.unsplash.com/photo-1626200419199-391ae4be7a41?q=80&w=600&auto=format&fit=crop' },
-  { id: '2', code: 'EMP-JYQ', name: 'Empanada de Jamón y Queso', description: 'Clásica con abundante jamón y queso muzzarella.', price: 1400, category: 'Empanadas', image_url: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=600&auto=format&fit=crop' },
-  { id: '3', code: 'PIZ-MUZ', name: 'Pizza Muzzarella', description: 'Salsa de tomate, queso muzzarella, orégano y aceitunas.', price: 8500, category: 'Pizzas', image_url: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop' },
-  { id: '4', code: 'MIN-MIL', name: 'Milanesa con Papas Fritas', description: 'Milanesa de ternera acompañada de papas fritas crujientes.', price: 9500, category: 'Minutas', image_url: 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?q=80&w=600&auto=format&fit=crop' }
-]
-
 export default async function CatalogPage() {
-  let products = mockProducts
+  let products: any[] = []
   try {
-    const { data } = await supabase.from('products').select('*').eq('is_available', true)
-    if (data && data.length > 0) products = data
+    products = await getProducts()
   } catch (error) {
-    console.warn("Using mock data as Supabase is not configured yet.")
+    console.warn("Error fetching products from Supabase", error)
   }
 
   const categories = Array.from(new Set(products.map(p => p.category)))
@@ -34,6 +25,12 @@ export default async function CatalogPage() {
           Pide online y disfruta en casa.
         </p>
       </div>
+
+      {products.length === 0 && (
+        <div className="text-center text-gray-400 py-12">
+          No hay productos disponibles en este momento.
+        </div>
+      )}
 
       {categories.map(category => (
         <section key={category} className="mb-16">

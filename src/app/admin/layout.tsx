@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   LayoutDashboard, 
   ChefHat, 
@@ -9,8 +9,11 @@ import {
   PackageSearch,
   Settings,
   LogOut,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Loader2
 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useEffect, useState } from 'react'
 
 const navigation = [
   { name: 'Gerencia (KPIs)', href: '/admin', icon: LayoutDashboard },
@@ -21,6 +24,42 @@ const navigation = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+      } else {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.push('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-[#0a0a0f] items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-red-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-[#0a0a0f] text-gray-100 overflow-hidden">
@@ -59,11 +98,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div className="p-4 border-t border-white/5 space-y-1">
-          <button className="flex w-full items-center px-2 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+          <Link href="/admin/configuracion" className="flex w-full items-center px-2 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
             <Settings className="mr-3 h-5 w-5" />
             Configuración
-          </button>
-          <button className="flex w-full items-center px-2 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all">
+          </Link>
+          <button onClick={handleLogout} className="flex w-full items-center px-2 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all">
             <LogOut className="mr-3 h-5 w-5" />
             Cerrar Sesión
           </button>

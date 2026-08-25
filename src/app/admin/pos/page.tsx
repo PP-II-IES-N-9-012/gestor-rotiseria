@@ -1,17 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Plus, CreditCard, Banknote } from 'lucide-react'
-
-// Mock products
-const mockProducts = [
-  { id: '1', code: 'EMP-CAR', name: 'Empanada de Carne', price: 1500, category: 'Empanadas' },
-  { id: '2', code: 'EMP-JYQ', name: 'Empanada de JyQ', price: 1400, category: 'Empanadas' },
-  { id: '3', code: 'PIZ-MUZ', name: 'Pizza Muzzarella', price: 8500, category: 'Pizzas' },
-]
+import { useState, useEffect } from 'react'
+import { Search, Plus, CreditCard, Banknote, Loader2 } from 'lucide-react'
+import { getProducts, createOrder } from '@/lib/api'
 
 export default function POSPage() {
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<{id: string, name: string, price: number, quantity: number}[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('Todas las categorías')
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const data = await getProducts()
+        setProducts(data || [])
+      } catch (error) {
+        console.error("Error loading products", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProducts()
+  }, [])
   
   const addToCart = (product: any) => {
     setCart(prev => {
@@ -25,6 +39,40 @@ export default function POSPage() {
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
 
+  const handleConfirmOrder = async () => {
+    if (cart.length === 0) return
+    setIsSubmitting(true)
+    
+    try {
+      await createOrder({
+        delivery_type: 'local_pickup', // POS is usually local or dine-in
+        total_amount: total,
+        payment_method: paymentMethod,
+        status: 'pending' // Send to kitchen
+      }, cart.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.price
+      })))
+      
+      alert('Venta registrada con éxito. Enviada a cocina.')
+      setCart([])
+    } catch (error) {
+      console.error("Error creating order", error)
+      alert("Hubo un error al registrar la venta.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const categories = ['Todas las categorías', ...Array.from(new Set(products.map(p => p.category)))]
+  
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = categoryFilter === 'Todas las categorías' || p.category === categoryFilter
+    return matchesSearch && matchesCategory
+  })
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6">
       {/* Product List */}
@@ -35,27 +83,44 @@ export default function POSPage() {
             <input 
               type="text" 
               placeholder="Buscar producto..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
               className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:border-red-500"
             />
           </div>
-          <select className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2 focus:outline-none">
-            <option>Todas las categorías</option>
-            <option>Empanadas</option>
-            <option>Pizzas</option>
+          <select 
+            className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2 focus:outline-none"
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+          >
+            {categories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </select>
         </div>
         
-        <div className="flex-1 p-4 overflow-y-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {mockProducts.map(p => (
-            <button 
-              key={p.id}
-              onClick={() => addToCart(p)}
-              className="bg-slate-800/50 hover:bg-slate-700/50 border border-white/5 p-4 rounded-xl text-left transition-all active:scale-95 flex flex-col justify-between aspect-square"
-            >
-              <span className="font-medium text-sm md:text-base">{p.name}</span>
-              <span className="text-red-400 font-bold mt-2">${p.price}</span>
-            </button>
-          ))}
+        <div className="flex-1 p-4 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center items-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredProducts.map(p => (
+                <button 
+                  key={p.id}
+                  onClick={() => addToCart(p)}
+                  className="bg-slate-800/50 hover:bg-slate-700/50 border border-white/5 p-4 rounded-xl text-left transition-all active:scale-95 flex flex-col justify-between aspect-square"
+                >
+                  <span className="font-medium text-sm md:text-base">{p.name}</span>
+                  <span className="text-red-400 font-bold mt-2">${p.price}</span>
+                </button>
+              ))}
+              {filteredProducts.length === 0 && (
+                <div className="col-span-full text-center text-gray-500 py-10">No se encontraron productos.</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -87,24 +152,27 @@ export default function POSPage() {
             <span className="text-red-500">${total}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-3 rounded-xl transition-colors">
+            <button 
+              className={`flex items-center justify-center gap-2 py-3 rounded-xl transition-colors border ${paymentMethod === 'cash' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-800 hover:bg-slate-700 border-transparent'}`}
+              onClick={() => setPaymentMethod('cash')}
+            >
               <Banknote className="w-5 h-5" />
               <span>Efectivo</span>
             </button>
-            <button className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-3 rounded-xl transition-colors">
+            <button 
+              className={`flex items-center justify-center gap-2 py-3 rounded-xl transition-colors border ${paymentMethod === 'card' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-800 hover:bg-slate-700 border-transparent'}`}
+              onClick={() => setPaymentMethod('card')}
+            >
               <CreditCard className="w-5 h-5" />
               <span>Tarjeta</span>
             </button>
           </div>
           <button 
-            className="w-full btn-primary mt-4 py-3 text-lg"
-            onClick={() => {
-              if(cart.length > 0) {
-                alert('Venta registrada con éxito'); 
-                setCart([]);
-              }
-            }}
+            className="w-full btn-primary mt-4 py-3 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleConfirmOrder}
+            disabled={cart.length === 0 || isSubmitting}
           >
+            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
             Confirmar Venta
           </button>
         </div>
