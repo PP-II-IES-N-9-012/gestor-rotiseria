@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { UtensilsCrossed, Loader2, Lock, Mail } from 'lucide-react'
+import Link from 'next/link'
+import { Flame, Loader2, Lock, Mail, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
@@ -33,7 +34,7 @@ export default function LoginPage() {
         .single()
 
       if (profileError || !profile) {
-        throw new Error('No tienes un perfil de rotisería asignado.')
+        throw new Error('No tienes un local asignado a tu perfil.')
       }
 
       // If successful, redirect to admin dashboard
@@ -48,56 +49,66 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#151210] flex items-center justify-center p-4 selection:bg-[#d34e2c] selection:text-white relative">
+      
+      {/* Return to Landing Link */}
+      <Link 
+        href="/"
+        className="absolute top-6 left-6 text-xs text-[#bfa38c] hover:text-[#e59324] flex items-center gap-1.5 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Volver a ComandApp</span>
+      </Link>
+
       <div className="w-full max-w-md">
         
         {/* Logo */}
         <div className="flex flex-col items-center justify-center mb-8">
-          <div className="bg-red-500 p-3 rounded-2xl mb-4 shadow-lg shadow-red-500/20">
-            <UtensilsCrossed className="w-8 h-8 text-white" />
+          <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-3.5 rounded-2xl mb-3 shadow-xl shadow-orange-950/60 border border-amber-500/20">
+            <Flame className="w-8 h-8 text-[#ffd5a8]" />
           </div>
-          <h1 className="text-3xl font-outfit font-bold tracking-tight text-white">
-            Roti<span className="text-red-500">Admin</span>
+          <h1 className="text-3xl font-rustic font-bold tracking-tight text-white">
+            Comand<span className="text-[#e59324]">App</span>
           </h1>
-          <p className="text-gray-400 mt-2 text-sm text-center">
-            Ingresa a tu panel de administración
+          <p className="text-[#bfa38c] mt-1 text-xs text-center font-medium">
+            Panel de Cocina & Gestión de tu Rotisería
           </p>
         </div>
 
         {/* Form Card */}
-        <div className="glass-panel rounded-3xl p-8 border border-white/10 shadow-2xl">
-          <form onSubmit={handleLogin} className="space-y-6">
+        <div className="bg-[#1f1712] rounded-3xl p-8 border border-[#4d3a2b] shadow-2xl">
+          <form onSubmit={handleLogin} className="space-y-5">
             
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Correo Electrónico</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[#c7af9a] ml-1">Correo Electrónico</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-500" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Mail className="h-4 w-4 text-[#7d6553]" />
                 </div>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
-                  placeholder="admin@mirotiseria.com"
+                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl pl-10 pr-4 py-3 text-white text-sm placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-all"
+                  placeholder="admin@tunegocio.com"
                   required
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between ml-1">
-                <label className="text-sm font-medium text-gray-300">Contraseña</label>
+                <label className="text-xs font-semibold text-[#c7af9a]">Contraseña</label>
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-500" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Lock className="h-4 w-4 text-[#7d6553]" />
                 </div>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
+                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl pl-10 pr-4 py-3 text-white text-sm placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-all"
                   placeholder="••••••••"
                   required
                 />
@@ -105,7 +116,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl text-center">
+              <div className="bg-red-950/40 border border-red-900/60 text-red-300 text-xs p-3.5 rounded-xl text-center">
                 {error}
               </div>
             )}
@@ -113,12 +124,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary py-3.5 text-base font-semibold rounded-xl flex justify-center items-center gap-2 mt-4"
+              className="w-full btn-primary py-3.5 text-sm font-bold rounded-xl flex justify-center items-center gap-2 mt-2 shadow-lg"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                'Iniciar Sesión'
+                'Ingresar a mi Cocina'
               )}
             </button>
             
@@ -126,8 +137,8 @@ export default function LoginPage() {
         </div>
         
         {/* Support Link */}
-        <p className="text-center text-sm text-gray-500 mt-8">
-          ¿Necesitas ayuda? Contacta a <a href="#" className="text-red-400 hover:text-red-300 transition-colors">soporte</a>
+        <p className="text-center text-xs text-[#8c6f59] mt-6">
+          ¿Problemas para acceder? Contacta a <a href="#" className="text-[#e59324] hover:underline font-semibold">soporte técnico</a>
         </p>
       </div>
     </div>

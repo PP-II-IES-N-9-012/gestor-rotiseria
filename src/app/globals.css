@@ -1,30 +1,41 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0f1115;
-  --color-foreground: #f8fafc;
-  --color-primary: #ef4444; /* Vibrant Red/Orange for food appetite */
-  --color-primary-dark: #dc2626;
-  --color-surface: #1e2128;
-  --color-surface-hover: #292d36;
-  --color-border: #334155;
+  --color-background: #151210;
+  --color-foreground: #fcf9f5;
+  --color-primary: #d34e2c; /* Warm artisanal terracotta / oven ember */
+  --color-primary-dark: #b83d1c;
+  --color-primary-light: #ea643f;
+  --color-amber: #e59324; /* Golden crust / homemade warmth */
+  --color-surface: #201a16;
+  --color-surface-hover: #2c241f;
+  --color-surface-card: #251e19;
+  --color-border: #44372e;
+  --color-border-subtle: #2f2620;
+  --color-parchment: #f7eedf;
+  --color-herb: #16a34a;
 }
 
 @layer base {
   :root {
-    --background: #0f1115;
-    --foreground: #f8fafc;
-    --primary: #ef4444;
+    --background: #151210;
+    --foreground: #fcf9f5;
+    --primary: #d34e2c;
     --primary-foreground: #ffffff;
-    --surface: #1e2128;
-    --surface-hover: #292d36;
-    --border: #334155;
+    --surface: #201a16;
+    --surface-hover: #2c241f;
+    --border: #44372e;
+    --font-serif: var(--font-serif);
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: 
+      radial-gradient(ellipse at 15% 10%, rgba(211, 78, 44, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(229, 147, 36, 0.06) 0%, transparent 50%);
+    background-attachment: fixed;
   }
 
   /* Smooth scrolling */
@@ -32,37 +43,71 @@
     scroll-behavior: smooth;
   }
 
-  /* Custom scrollbar */
+  /* Custom rustic scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--background);
+    background: #151210;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: #3d3128;
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--surface-hover);
+    background: #544437;
   }
 }
 
 @layer components {
   .glass-panel {
-    background: rgba(30, 33, 40, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(32, 26, 22, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(229, 147, 36, 0.15);
   }
-  
+
+  .glass-panel-subtle {
+    background: rgba(26, 21, 18, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .wood-panel {
+    background: #1e1814;
+    border: 1px solid #3d3128;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  }
+
+  .chalk-board {
+    background: #171513;
+    border: 2px dashed #473a2f;
+  }
+
   .btn-primary {
-    @apply bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 active:scale-95;
-    box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.39);
+    @apply bg-gradient-to-r from-[#d34e2c] to-[#b83d1c] hover:from-[#ea643f] hover:to-[#d34e2c] text-white font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95 shadow-md shadow-orange-950/40;
+    border: 1px solid rgba(255, 255, 255, 0.12);
   }
   
+  .btn-amber {
+    @apply bg-gradient-to-r from-[#e59324] to-[#c97814] hover:from-[#f3a436] hover:to-[#e59324] text-[#151210] font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95 shadow-md shadow-amber-950/40;
+  }
+
   .btn-secondary {
-    @apply bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 active:scale-95;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    @apply bg-[#2a221d] hover:bg-[#362c26] text-[#faeee1] font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95;
+    border: 1px solid rgba(229, 147, 36, 0.2);
+  }
+
+  .badge-rustic {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#2b211a] text-[#f6d7ab] border border-[#e59324]/30;
+  }
+
+  .badge-ember {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#3c1d15] text-[#ff9f87] border border-[#d34e2c]/40;
+  }
+
+  .font-rustic {
+    font-family: var(--font-serif), Georgia, serif;
   }
 }
+

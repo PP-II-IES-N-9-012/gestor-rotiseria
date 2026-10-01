@@ -6,11 +6,12 @@ import {
   LayoutDashboard, 
   ChefHat, 
   Calculator, 
-  PackageSearch,
-  Settings,
-  LogOut,
-  UtensilsCrossed,
-  Loader2
+  PackageSearch, 
+  Settings, 
+  LogOut, 
+  Flame, 
+  Loader2,
+  Store
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
@@ -18,7 +19,7 @@ import { useEffect, useState } from 'react'
 const navigation = [
   { name: 'Gerencia (KPIs)', href: '/admin', icon: LayoutDashboard },
   { name: 'Punto de Venta', href: '/admin/pos', icon: Calculator },
-  { name: 'Cocina', href: '/admin/cocina', icon: ChefHat },
+  { name: 'Cocina en Vivo', href: '/admin/cocina', icon: ChefHat },
   { name: 'Inventario', href: '/admin/inventario', icon: PackageSearch },
 ]
 
@@ -55,55 +56,79 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[#0a0a0f] items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-red-500" />
+      <div className="flex h-screen bg-[#151210] items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-[#e59324]" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f] text-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-[#151210] text-[#fcf9f5] overflow-hidden selection:bg-[#d34e2c] selection:text-white">
       {/* Sidebar */}
-      <aside className="w-64 glass-panel border-r border-white/5 flex flex-col justify-between hidden md:flex">
+      <aside className="w-64 bg-[#1b1511] border-r border-[#382b21] flex flex-col justify-between hidden md:flex">
         <div>
-          <div className="h-20 flex items-center px-6 border-b border-white/5">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="bg-red-500 p-1.5 rounded-lg">
-                <UtensilsCrossed className="w-5 h-5 text-white" />
+          <div className="h-20 flex items-center px-6 border-b border-[#382b21]">
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-2 rounded-xl group-hover:rotate-6 transition-transform shadow-md shadow-orange-950/40">
+                <Flame className="w-5 h-5 text-[#ffd5a8]" />
               </div>
-              <span className="font-outfit text-xl font-bold tracking-tight">Roti<span className="text-red-500">Admin</span></span>
+              <div className="flex flex-col">
+                <span className="font-rustic text-xl font-bold tracking-tight text-white">
+                  Comand<span className="text-[#e59324]">App</span>
+                </span>
+                <span className="text-[10px] text-[#bda086] -mt-1 font-semibold">Panel de Cocina</span>
+              </div>
             </Link>
           </div>
           
-          <nav className="p-4 space-y-1">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">Modulos</div>
+          <nav className="p-4 space-y-1.5">
+            <div className="text-[11px] font-semibold text-[#8c6f59] uppercase tracking-wider mb-3 px-3">
+              Módulos del Local
+            </div>
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center px-2 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                  className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                     isActive
-                      ? 'bg-red-500/10 text-red-500 border border-red-500/20'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                      ? 'bg-[#3b2419] text-[#e59324] border border-[#e59324]/30 shadow-sm'
+                      : 'text-[#c7af9a] hover:bg-[#281f18] hover:text-white'
                   }`}
                 >
-                  <item.icon className={`mr-3 h-5 w-5 ${isActive ? 'text-red-500' : 'text-gray-400'}`} />
+                  <item.icon className={`mr-3 h-4 w-4 ${isActive ? 'text-[#e59324]' : 'text-[#8c6f59]'}`} />
                   {item.name}
                 </Link>
               )
             })}
+
+            <div className="pt-4 border-t border-[#31251e] mt-4">
+              <Link 
+                href="/tienda" 
+                target="_blank"
+                className="flex items-center px-3 py-2.5 text-xs text-[#a88a70] hover:text-[#e59324] hover:bg-[#281f18] rounded-xl transition-colors gap-2"
+              >
+                <Store className="w-4 h-4 text-[#e59324]" />
+                <span>Ver Tienda Pública</span>
+              </Link>
+            </div>
           </nav>
         </div>
 
-        <div className="p-4 border-t border-white/5 space-y-1">
-          <Link href="/admin/configuracion" className="flex w-full items-center px-2 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-            <Settings className="mr-3 h-5 w-5" />
+        <div className="p-4 border-t border-[#382b21] space-y-1">
+          <Link 
+            href="/admin/configuracion" 
+            className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[#c7af9a] hover:bg-[#281f18] hover:text-white transition-all"
+          >
+            <Settings className="mr-3 h-4 w-4 text-[#8c6f59]" />
             Configuración
           </Link>
-          <button onClick={handleLogout} className="flex w-full items-center px-2 py-3 text-sm font-medium rounded-xl text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all">
-            <LogOut className="mr-3 h-5 w-5" />
+          <button 
+            onClick={handleLogout} 
+            className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[#8c6f59] hover:bg-red-500/10 hover:text-red-400 transition-all"
+          >
+            <LogOut className="mr-3 h-4 w-4" />
             Cerrar Sesión
           </button>
         </div>
@@ -111,10 +136,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-20 glass-panel border-b border-white/5 flex items-center justify-between px-8 md:hidden">
-            <span className="font-outfit text-xl font-bold tracking-tight">Roti<span className="text-red-500">Admin</span></span>
+        <header className="h-16 bg-[#1b1511] border-b border-[#382b21] flex items-center justify-between px-6 md:hidden">
+          <div className="flex items-center space-x-2">
+            <Flame className="w-5 h-5 text-[#e59324]" />
+            <span className="font-rustic text-lg font-bold tracking-tight text-white">Comand<span className="text-[#e59324]">App</span></span>
+          </div>
+          <button onClick={handleLogout} className="text-xs text-[#8c6f59] hover:text-red-400">
+            Salir
+          </button>
         </header>
-        <div className="flex-1 overflow-auto bg-[#0a0a0f] p-8">
+        <div className="flex-1 overflow-auto bg-[#151210] p-6 md:p-8">
           {children}
         </div>
       </main>
