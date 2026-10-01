@@ -41,7 +41,8 @@ export async function createOrder(
     guest_phone?: string,
     guest_address?: string,
     payment_method?: string,
-    notes?: string
+    notes?: string,
+    status?: string
   },
   items: { product_id: string, quantity: number, unit_price: number }[],
   restaurantId?: string
