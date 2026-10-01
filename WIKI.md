@@ -2,6 +2,9 @@
 
 Bienvenido a la documentación oficial y guía de uso del **Gestor de Rotisería (RotiAdmin & RotiExpress)**. En esta wiki encontrarás los manuales operativos para cada función del sistema, así como la guía técnica detallada para dar de alta nuevos negocios en una arquitectura multi-inquilino (*multi-tenant*).
 
+> 🌐 **Versión Interactiva en GitHub:** Puedes consultar esta misma documentación navegando por páginas y con menú lateral en:  
+> 👉 **[Wiki Oficial en GitHub](https://github.com/PP-II-IES-N-9-012/gestor-rotiseria/wiki)**
+
 ---
 
 ## 📑 Índice de Contenidos
