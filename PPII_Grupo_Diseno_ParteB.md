@@ -177,7 +177,87 @@ Dado que es una aplicación Next.js y React, las "clases" se ven reflejadas como
     - ➔ `/admin/inventario` (Control de Stock)
     - ➔ `/admin/configuracion` (Ajustes del local)
 
-- *[Aquí se insertarán los Mockups]*
+### Mockups y Pantallas del Sistema (Muestra de Diseño)
+
+#### Pantalla P-01: Landing Page Institucional y Ventas (`/`)
+Presenta la propuesta de valor del sistema, eliminando comisiones de apps intermediarias y ofreciendo a cada rotisería su propia identidad y subdominio. Incluye simulador de subdominios y demostrador interactivo de módulos en tiempo real.
+
+![P-01: Landing Page Principal](docs/capturas/01_landing_hero.png)
+
+*Demostrador interactivo y simulador de subdominios en Landing:*
+![P-01b: Demostrador y Simulador](docs/capturas/01_landing_demostrador.png)
+
+---
+
+#### Pantalla P-02: Tienda Online por Subdominio y Catálogo Artesanal (`/tienda` o `[subdominio].comandapp.com`)
+Catálogo público categorizado (*Spiedo y Horno*, *Empanadas Caseras*, *Pastas & Minutas*, *Tartas*). Muestra datos del comercio (dirección, teléfono, tiempo estimado de cocina) y botón interactivo "Pedir al plato". Diseñado con enfoque Mobile First.
+
+*Vista de Escritorio:*
+![P-02: Catálogo de Productos - Desktop](docs/capturas/02_tienda_catalogo.png)
+
+*Vista Móvil (Smartphone / Mobile First):*
+![P-02b: Catálogo Móvil](docs/capturas/02_tienda_catalogo_mobile.png)
+
+---
+
+#### Pantalla P-03: Carrito de Comanda y Checkout Directo (`/carrito`)
+Permite gestionar cantidades de platos solicitados, calcular subtotales y completar el pedido en menos de un minuto sin registro obligatorio. Admite modalidades de Entrega a Domicilio (Delivery) o Retiro en Local (Take Away), medios de pago (Efectivo / Transferencia / MercadoPago) y aclaraciones para cocina.
+
+*Vista de Escritorio:*
+![P-03: Carrito y Checkout - Desktop](docs/capturas/03_carrito_checkout.png)
+
+*Vista Móvil:*
+![P-03b: Carrito y Checkout - Mobile](docs/capturas/03_carrito_checkout_mobile.png)
+
+---
+
+#### Pantalla P-04: Seguimiento de Comanda en Tiempo Real (`/seguimiento`)
+Línea de tiempo gráfica de 4 etapas que refleja el estado de la orden en vivo: *Comanda Recibida* ➔ *Marchando en el Fuego* ➔ *¡Platos Listos!* ➔ *Entregado*. Permite al cliente conocer el progreso de cocción y despacho.
+
+![P-04: Seguimiento de Pedido en Vivo](docs/capturas/04_seguimiento_pedido.png)
+
+---
+
+#### Pantalla P-05: Inicio de Sesión / Login del Personal (`/login`)
+Acceso privado para administradores, cajeros y cocineros mediante autenticación Supabase Auth con validación multi-tenant de comercio asignado.
+
+![P-05: Login de Personal](docs/capturas/05_login_acceso.png)
+
+---
+
+#### Pantalla P-06: Panel Administrativo — Dashboard Gerencial y KPIs (`/admin`)
+Tablero de control con métricas clave del día en tiempo real: Ventas totales en pesos, cantidad de pedidos del turno, ticket promedio por comanda y panel de insumos críticos con reposición ágil.
+
+![P-06: Dashboard Gerencial](docs/capturas/06_admin_dashboard.png)
+
+---
+
+#### Pantalla P-07: Punto de Venta de Mostrador / POS (`/admin/pos`)
+Terminal ágil para atención presencial y pedidos telefónicos. Cuenta con filtrado instantáneo por categorías, selección de platos con un clic, armado dinámico del ticket de venta, cálculo de total y envío directo a cocina.
+
+![P-07: Punto de Venta POS](docs/capturas/07_admin_pos.png)
+
+---
+
+#### Pantalla P-08: Comandera de Cocina en Vivo / KDS (`/admin/cocina`)
+Pantalla táctil para la partida de cocina con sincronización instantánea por WebSockets. Organizada en columnas operativas (*Pendientes*, *En Preparación* con cronómetro, y *Listos*) para un despacho ordenado sin papel.
+
+![P-08: Comandera de Cocina KDS](docs/capturas/08_admin_cocina_kds.png)
+
+---
+
+#### Pantalla P-09: Control de Inventario y Materias Primas (`/admin/inventario`)
+Control de stock de materias primas con umbral de seguridad (`min_stock`). Resalta insumos en estado crítico mediante alerta visual roja y facilita el registro de nuevos ingresos de mercadería (+ Ingreso).
+
+![P-09: Control de Inventario](docs/capturas/09_admin_inventario.png)
+
+---
+
+#### Pantalla P-10: Configuración del Local Comercial (`/admin/configuracion`)
+Gestión de identidad comercial, subdominio asignado, datos de contacto, dirección física y descripción para personalizar la tienda online de cada cliente gastronómico.
+
+![P-10: Configuración del Local](docs/capturas/10_admin_configuracion.png)
+
 
 ### Criterios de usabilidad y accesibilidad aplicados
 - **Consistencia Visual:** Uso de variables CSS globales y componentes estandarizados mediante Tailwind, garantizando los mismos colores (estado crítico en rojo, confirmaciones en verde) y bordes redondeados (glassmorphism) en todo el sistema.

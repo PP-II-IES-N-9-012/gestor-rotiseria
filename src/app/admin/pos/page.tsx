@@ -7,7 +7,11 @@ import { getProducts, createOrder } from '@/lib/api'
 export default function POSPage() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [cart, setCart] = useState<{id: string, name: string, price: number, quantity: number}[]>([])
+  const [cart, setCart] = useState<{id: string, name: string, price: number, quantity: number}[]>([
+    { id: 'prod-spiedo-01', name: 'Pollo al Spiedo al Limón y Finas Hierbas', price: 12500, quantity: 1 },
+    { id: 'prod-emp-01', name: 'Empanadas Criollas Cortadas a Cuchillo', price: 1600, quantity: 6 },
+    { id: 'prod-papas-01', name: 'Porción de Papas Fritas Rústicas a la Provenzal', price: 4900, quantity: 1 }
+  ])
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('Todas las categorías')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')

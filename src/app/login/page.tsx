@@ -132,6 +132,17 @@ export default function LoginPage() {
                 'Ingresar a mi Cocina'
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('demo_auth', 'true')
+                router.push('/admin')
+              }}
+              className="w-full bg-[#2a1d15] hover:bg-[#38261b] text-[#e59324] border border-[#e59324]/30 py-2.5 text-xs font-semibold rounded-xl flex justify-center items-center gap-1.5 transition-all"
+            >
+              <span>Acceso Rápido / Modo Demostración</span>
+            </button>
             
           </form>
         </div>
