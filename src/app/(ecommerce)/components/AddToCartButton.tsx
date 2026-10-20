@@ -20,10 +20,17 @@ export default function AddToCartButton({
   return (
     <button 
       onClick={handleAdd}
+      style={
+        added 
+          ? undefined 
+          : {
+              background: `linear-gradient(135deg, var(--brand-primary, #e59324), var(--brand-secondary, #d34e2c))`
+            }
+      }
       className={`w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl font-medium transition-all duration-200 active:scale-95 shadow-md ${
         added 
           ? 'bg-emerald-600 text-white shadow-emerald-950/40' 
-          : 'bg-gradient-to-r from-[#d34e2c] to-[#b83d1c] hover:from-[#ea643f] hover:to-[#d34e2c] text-white shadow-orange-950/40 border border-white/10'
+          : 'text-white shadow-black/40 border border-white/10 hover:brightness-110'
       }`}
     >
       {added ? (

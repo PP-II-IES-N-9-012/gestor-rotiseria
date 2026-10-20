@@ -14,35 +14,87 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
 
   useEffect(() => setMounted(true), [])
 
+  const primaryColor = restaurant?.primary_color || '#e59324'
+  const secondaryColor = restaurant?.secondary_color || '#d34e2c'
+  const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
+  const fontClass = restaurant?.font_style === 'sans' ? 'font-modern' : 'font-rustic'
+  const announcementText = restaurant?.announcement_banner || '🔥 Horno encendido y cocina despachando pedidos en vivo'
+  const showAnnouncement = restaurant?.announcement_enabled !== false
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#151210] text-[#fcf9f5]">
-      {/* Top Notice Bar */}
-      <div className="bg-[#241a14] border-b border-[#3d2c20] px-4 py-1.5 text-xs text-center text-[#e8caa4] flex items-center justify-center gap-2">
-        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span>Horno encendido y cocina despachando pedidos en vivo</span>
-        <span className="hidden md:inline text-[#8a6b52]">•</span>
-        <Link href="/" className="hidden md:inline text-[#e59324] hover:underline font-medium">
-          ¿Tienes una rotisería? Conoce ComandApp ➔
-        </Link>
-      </div>
+    <div 
+      className={`flex flex-col min-h-screen text-[#fcf9f5] ${themeClass} ${fontClass}`}
+      style={{
+        '--brand-primary': primaryColor,
+        '--brand-secondary': secondaryColor,
+        backgroundColor: 'var(--store-bg, #151210)'
+      } as React.CSSProperties}
+    >
+      {/* Top Announcement Bar */}
+      {showAnnouncement && (
+        <div 
+          className="border-b px-4 py-1.5 text-xs text-center flex items-center justify-center gap-2 transition-colors"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            borderColor: `${primaryColor}25`,
+            color: '#e8caa4'
+          }}
+        >
+          <span 
+            className="inline-block w-2 h-2 rounded-full animate-pulse shadow-sm"
+            style={{ backgroundColor: primaryColor }}
+          />
+          <span className="font-medium text-white/90">{announcementText}</span>
+          <span className="hidden md:inline opacity-40">•</span>
+          <Link 
+            href="/" 
+            className="hidden md:inline hover:underline font-semibold transition-colors"
+            style={{ color: primaryColor }}
+          >
+            ¿Tienes una rotisería? Conoce ComandApp ➔
+          </Link>
+        </div>
+      )}
 
       {/* Main Store Header */}
-      <header className="sticky top-0 z-50 bg-[#1e1713]/90 backdrop-blur-md border-b border-[#44372e] shadow-xl">
+      <header 
+        className="sticky top-0 z-50 backdrop-blur-md border-b shadow-xl transition-all"
+        style={{
+          backgroundColor: 'var(--store-header-bg, rgba(30, 23, 19, 0.95))',
+          borderColor: `${primaryColor}20`
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             
             {/* Logo / Brand */}
             <Link href={storePath} className="flex items-center space-x-3 group">
-              <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-2.5 rounded-xl group-hover:rotate-6 transition-all duration-300 shadow-md shadow-orange-950/50 border border-amber-500/20">
-                <Flame className="w-6 h-6 text-[#ffd5a8]" />
-              </div>
+              {restaurant?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src={restaurant.logo_url} 
+                  alt={restaurant.name} 
+                  className="w-12 h-12 object-contain rounded-2xl bg-black/40 p-1.5 border shadow-md group-hover:scale-105 transition-all" 
+                  style={{ borderColor: `${primaryColor}40` }}
+                />
+              ) : (
+                <div 
+                  className="p-2.5 rounded-2xl group-hover:rotate-6 transition-all duration-300 shadow-lg text-white"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                    boxShadow: `0 4px 14px ${primaryColor}40`
+                  }}
+                >
+                  <Flame className="w-6 h-6" />
+                </div>
+              )}
               <div className="flex flex-col">
                 <span className="font-rustic text-2xl font-bold tracking-tight text-[#fcf9f5]">
-                  {restaurant ? restaurant.name : <>La <span className="text-[#e59324]">Rotisería</span></>}
+                  {restaurant?.name || 'La Rotisería'}
                 </span>
                 <span className="text-[11px] text-[#bda086] -mt-1 flex items-center gap-1 font-medium">
-                  <Sparkles className="w-3 h-3 text-[#e59324]" />
-                  ComandApp • Sabor Casero
+                  <Sparkles className="w-3 h-3" style={{ color: primaryColor }} />
+                  Tienda Oficial • Sabor Casero
                 </span>
               </div>
             </Link>
@@ -51,20 +103,20 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
             <nav className="hidden md:flex items-center space-x-8">
               <Link 
                 href={storePath} 
-                className="text-[#ddcfc2] hover:text-[#e59324] transition-colors font-medium text-sm flex items-center gap-1.5"
+                className="text-[#ddcfc2] transition-colors font-medium text-sm flex items-center gap-1.5 hover:text-white"
               >
-                <Utensils className="w-4 h-4 text-[#e59324]" />
+                <Utensils className="w-4 h-4" style={{ color: primaryColor }} />
                 Carta & Menú
               </Link>
               <Link 
                 href={href('/seguimiento')} 
-                className="text-[#ddcfc2] hover:text-[#e59324] transition-colors font-medium text-sm"
+                className="text-[#ddcfc2] transition-colors font-medium text-sm hover:text-white"
               >
                 Seguimiento en Vivo
               </Link>
               <Link 
                 href="/" 
-                className="text-xs text-[#a88a70] hover:text-[#fcf9f5] px-3 py-1.5 rounded-lg border border-[#44372e] hover:border-[#e59324]/40 transition-all"
+                className="text-xs text-[#a88a70] hover:text-[#fcf9f5] px-3 py-1.5 rounded-lg border border-[#44372e] hover:border-white/20 transition-all"
               >
                 Sobre ComandApp
               </Link>
@@ -74,12 +126,22 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
             <div className="flex items-center space-x-4">
               <Link 
                 href={href('/carrito')} 
-                className="relative flex items-center gap-2 bg-[#2d221b] hover:bg-[#3b2d24] text-[#fcf9f5] px-4 py-2 rounded-xl border border-[#e59324]/30 transition-all duration-200 active:scale-95 shadow-md"
+                className="relative flex items-center gap-2 text-[#fcf9f5] px-4 py-2.5 rounded-xl transition-all duration-200 active:scale-95 shadow-md group"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 1,
+                  borderColor: `${primaryColor}40`
+                }}
               >
-                <ShoppingCart className="w-5 h-5 text-[#e59324]" />
+                <ShoppingCart className="w-5 h-5 transition-transform group-hover:scale-110" style={{ color: primaryColor }} />
                 <span className="hidden sm:inline text-sm font-semibold">Mi Comanda</span>
                 {mounted && cartCount > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold leading-none text-white bg-[#d34e2c] rounded-full shadow-sm">
+                  <span 
+                    className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold leading-none text-white rounded-full shadow-md animate-in zoom-in"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` 
+                    }}
+                  >
                     {cartCount}
                   </span>
                 )}
@@ -94,25 +156,37 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      {/* Rustic Warm Footer */}
-      <footer className="bg-[#120e0c] border-t border-[#382b22] py-12 text-[#9e836d]">
+      {/* Warm Footer */}
+      <footer 
+        className="border-t py-12 text-[#9e836d] transition-colors"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          borderColor: `${primaryColor}20`
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
             <div>
               <p className="font-rustic text-xl font-bold text-[#fcf9f5] mb-1">
-                ComandApp • Tienda Online
+                {restaurant?.name || 'ComandApp • Tienda Online'}
               </p>
               <p className="text-sm text-[#b59982] max-w-md">
-                Hecho en casa con amor y dedicación. Cocina tradicional, recetas familiares y entrega directa sin intermediarios.
+                {restaurant?.footer_custom_text || restaurant?.description || 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.'}
               </p>
             </div>
             
             <div className="flex flex-col items-center md:items-end gap-2">
-              <div className="badge-rustic">
+              <div 
+                className="badge-rustic"
+                style={{
+                  borderColor: `${primaryColor}40`,
+                  color: primaryColor
+                }}
+              >
                 <span>⚡ 0% Comisiones • Software Gastronómico</span>
               </div>
               <p className="text-xs text-[#735e4e]">
-                Potenciado por <Link href="/" className="text-[#e59324] hover:underline font-semibold">ComandApp</Link> © {new Date().getFullYear()}
+                Potenciado por <Link href="/" className="hover:underline font-semibold" style={{ color: primaryColor }}>ComandApp</Link> © {new Date().getFullYear()}
               </p>
             </div>
           </div>

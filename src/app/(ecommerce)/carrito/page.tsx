@@ -95,6 +95,17 @@ export default function CartPage() {
       alert("No pudimos identificar el local de esta tienda. Recargá la página e intentá nuevamente.")
       return
     }
+
+    if (restaurant && restaurant.is_store_open === false) {
+      alert(restaurant.closed_message || "El local se encuentra cerrado temporalmente y no está recibiendo pedidos en este momento.")
+      return
+    }
+
+    if (restaurant && restaurant.min_order_amount && total() < Number(restaurant.min_order_amount)) {
+      alert(`El pedido mínimo para este local es de $${Number(restaurant.min_order_amount).toLocaleString()}.`)
+      return
+    }
+
     setIsSubmitting(true)
     
     try {
@@ -259,9 +270,24 @@ export default function CartPage() {
                   value={formData.paymentMethod} 
                   onChange={e => setFormData({...formData, paymentMethod: e.target.value})}
                 >
-                  <option value="cash">💵 Efectivo al recibir</option>
+                  <option value="cash">
+                    💵 Efectivo al recibir {Number(restaurant?.cash_discount_percentage) > 0 ? `(${restaurant?.cash_discount_percentage}% OFF)` : ''}
+                  </option>
                   <option value="mercadopago">📱 MercadoPago / Transferencia</option>
+                  <option value="card">💳 Tarjeta Débito/Crédito</option>
                 </select>
+
+                {formData.paymentMethod === 'mercadopago' && restaurant?.transfer_alias && (
+                  <p className="text-[11px] text-blue-300 mt-1.5 bg-blue-950/40 p-2 rounded-lg border border-blue-500/30">
+                    💳 <strong>Alias de Transferencia:</strong> <code className="font-mono text-white select-all">{restaurant.transfer_alias}</code>
+                  </p>
+                )}
+
+                {formData.paymentMethod === 'cash' && Number(restaurant?.cash_discount_percentage) > 0 && (
+                  <p className="text-[11px] text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/30">
+                    ⚡ <strong>Promoción:</strong> ¡Obtienes un {restaurant?.cash_discount_percentage}% de descuento abonando en efectivo al repartidor!
+                  </p>
+                )}
               </div>
 
               <div>

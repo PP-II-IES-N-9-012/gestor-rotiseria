@@ -11,18 +11,20 @@ import {
   LogOut, 
   Flame, 
   Loader2,
-  Store
+  Store,
+  UtensilsCrossed
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
-import { AdminRestaurantContext } from '@/lib/AdminContext'
+import { AdminRestaurantContext, AdminSetRestaurantContext } from '@/lib/AdminContext'
 import { buildTenantUrl, getClientTenant, tenantPath } from '@/lib/tenant'
 
 const navigation = [
   { name: 'Gerencia (KPIs)', href: '/admin', icon: LayoutDashboard },
   { name: 'Punto de Venta', href: '/admin/pos', icon: Calculator },
   { name: 'Cocina en Vivo', href: '/admin/cocina', icon: ChefHat },
+  { name: 'Catálogo & Recetas', href: '/admin/productos', icon: UtensilsCrossed },
   { name: 'Inventario', href: '/admin/inventario', icon: PackageSearch },
 ]
 
@@ -144,22 +146,61 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
+  const primaryColor = restaurant?.primary_color || '#e59324'
+  const secondaryColor = restaurant?.secondary_color || '#d34e2c'
+  const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
+
   return (
     <AdminRestaurantContext.Provider value={restaurant}>
-    <div className="flex h-screen bg-[#151210] text-[#fcf9f5] overflow-hidden selection:bg-[#d34e2c] selection:text-white">
+    <AdminSetRestaurantContext.Provider value={setRestaurant}>
+    <div 
+      className={`flex h-screen text-[#fcf9f5] overflow-hidden ${themeClass}`}
+      style={{
+        '--brand-primary': primaryColor,
+        '--brand-secondary': secondaryColor,
+        backgroundColor: 'var(--store-bg, #151210)'
+      } as React.CSSProperties}
+    >
       {/* Sidebar */}
-      <aside className="w-64 bg-[#1b1511] border-r border-[#382b21] flex flex-col justify-between hidden md:flex">
+      <aside 
+        className="w-64 border-r flex flex-col justify-between hidden md:flex transition-colors"
+        style={{
+          backgroundColor: 'var(--store-header-bg, #1b1511)',
+          borderColor: `${primaryColor}20`
+        }}
+      >
         <div>
-          <div className="h-20 flex items-center px-6 border-b border-[#382b21]">
+          <div 
+            className="h-20 flex items-center px-6 border-b transition-colors"
+            style={{ borderColor: `${primaryColor}20` }}
+          >
             <Link href="/" className="flex items-center space-x-3 group">
-              <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-2 rounded-xl group-hover:rotate-6 transition-transform shadow-md shadow-orange-950/40">
-                <Flame className="w-5 h-5 text-[#ffd5a8]" />
-              </div>
+              {restaurant?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src={restaurant.logo_url} 
+                  alt={restaurant.name}
+                  className="w-10 h-10 object-contain rounded-xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-transform"
+                  style={{ borderColor: `${primaryColor}40` }}
+                />
+              ) : (
+                <div 
+                  className="p-2 rounded-xl group-hover:rotate-6 transition-transform shadow-md text-white"
+                  style={{
+                    background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                    boxShadow: `0 4px 14px ${primaryColor}40`
+                  }}
+                >
+                  <Flame className="w-5 h-5" />
+                </div>
+              )}
               <div className="flex flex-col">
                 <span className="font-rustic text-xl font-bold tracking-tight text-white">
-                  Comand<span className="text-[#e59324]">App</span>
+                  Comand<span style={{ color: primaryColor }}>App</span>
                 </span>
-                <span className="text-[10px] text-[#bda086] -mt-1 font-semibold truncate max-w-[10rem]">{restaurant?.name || 'Panel de Cocina'}</span>
+                <span className="text-[10px] text-[#bda086] -mt-1 font-semibold truncate max-w-[10rem]">
+                  {restaurant?.name || 'Panel de Cocina'}
+                </span>
               </div>
             </Link>
           </div>
@@ -176,36 +217,63 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   href={item.href}
                   className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                     isActive
-                      ? 'bg-[#3b2419] text-[#e59324] border border-[#e59324]/30 shadow-sm'
-                      : 'text-[#c7af9a] hover:bg-[#281f18] hover:text-white'
+                      ? 'border shadow-sm font-semibold'
+                      : 'text-[#c7af9a] hover:bg-white/5 hover:text-white'
                   }`}
+                  style={isActive ? {
+                    backgroundColor: `${primaryColor}18`,
+                    color: primaryColor,
+                    borderColor: `${primaryColor}50`,
+                  } : undefined}
                 >
-                  <item.icon className={`mr-3 h-4 w-4 ${isActive ? 'text-[#e59324]' : 'text-[#8c6f59]'}`} />
+                  <item.icon 
+                    className="mr-3 h-4 w-4 transition-colors" 
+                    style={{ color: isActive ? primaryColor : '#8c6f59' }} 
+                  />
                   {item.name}
                 </Link>
               )
             })}
 
-            <div className="pt-4 border-t border-[#31251e] mt-4">
+            <div 
+              className="pt-4 border-t mt-4"
+              style={{ borderColor: `${primaryColor}20` }}
+            >
               <Link 
                 href={storeHref}
                 target="_blank"
-                className="flex items-center px-3 py-2.5 text-xs text-[#a88a70] hover:text-[#e59324] hover:bg-[#281f18] rounded-xl transition-colors gap-2"
+                className="flex items-center px-3 py-2.5 text-xs text-[#a88a70] hover:bg-white/5 rounded-xl transition-colors gap-2"
+                style={{ color: '#c7af9a' }}
               >
-                <Store className="w-4 h-4 text-[#e59324]" />
+                <Store className="w-4 h-4" style={{ color: primaryColor }} />
                 <span>Ver Tienda Pública</span>
               </Link>
             </div>
           </nav>
         </div>
 
-        <div className="p-4 border-t border-[#382b21] space-y-1">
+        <div 
+          className="p-4 border-t space-y-1"
+          style={{ borderColor: `${primaryColor}20` }}
+        >
           <Link 
             href="/admin/configuracion" 
-            className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[#c7af9a] hover:bg-[#281f18] hover:text-white transition-all"
+            className={`flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl transition-all ${
+              pathname === '/admin/configuracion'
+                ? 'border shadow-sm font-semibold'
+                : 'text-[#c7af9a] hover:bg-white/5 hover:text-white'
+            }`}
+            style={pathname === '/admin/configuracion' ? {
+              backgroundColor: `${primaryColor}18`,
+              color: primaryColor,
+              borderColor: `${primaryColor}50`,
+            } : undefined}
           >
-            <Settings className="mr-3 h-4 w-4 text-[#8c6f59]" />
-            Configuración
+            <Settings 
+              className="mr-3 h-4 w-4" 
+              style={{ color: pathname === '/admin/configuracion' ? primaryColor : '#8c6f59' }} 
+            />
+            Personalización & Ajustes
           </Link>
           <button 
             onClick={handleLogout} 
@@ -219,20 +287,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-[#1b1511] border-b border-[#382b21] flex items-center justify-between px-6 md:hidden">
+        <header 
+          className="h-16 border-b flex items-center justify-between px-6 md:hidden"
+          style={{
+            backgroundColor: 'var(--store-header-bg, #1b1511)',
+            borderColor: `${primaryColor}20`
+          }}
+        >
           <div className="flex items-center space-x-2">
-            <Flame className="w-5 h-5 text-[#e59324]" />
-            <span className="font-rustic text-lg font-bold tracking-tight text-white">Comand<span className="text-[#e59324]">App</span></span>
+            <Flame className="w-5 h-5" style={{ color: primaryColor }} />
+            <span className="font-rustic text-lg font-bold tracking-tight text-white">
+              Comand<span style={{ color: primaryColor }}>App</span>
+            </span>
           </div>
           <button onClick={handleLogout} className="text-xs text-[#8c6f59] hover:text-red-400">
             Salir
           </button>
         </header>
-        <div className="flex-1 overflow-auto bg-[#151210] p-6 md:p-8">
+        <div 
+          className="flex-1 overflow-auto p-6 md:p-8 transition-colors"
+          style={{ backgroundColor: 'var(--store-bg, #151210)' }}
+        >
           {children}
         </div>
       </main>
     </div>
+    </AdminSetRestaurantContext.Provider>
     </AdminRestaurantContext.Provider>
   )
 }

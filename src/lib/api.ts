@@ -7,7 +7,42 @@ export interface RestaurantInfo {
   address?: string
   phone?: string
   description?: string
+  whatsapp_number?: string
+  instagram_handle?: string
+  facebook_url?: string
+  tiktok_handle?: string
+  google_maps_url?: string
+  opening_hours?: string
+  logo_url?: string
+  banner_url?: string
+  primary_color?: string
+  secondary_color?: string
+  theme_style?: 'rustic' | 'midnight' | 'bodegon' | 'espresso' | 'olive'
+  font_style?: 'serif' | 'sans'
+  announcement_banner?: string
+  announcement_enabled?: boolean
+  estimated_delivery_time?: string
+  highlight_tag_1?: string
+  highlight_tag_2?: string
+  highlight_tag_3?: string
+
+  // Nuevas opciones avanzadas de control
+  is_store_open?: boolean
+  closed_message?: string
+  min_order_amount?: number
+  delivery_cost?: string
+  accepts_cash?: boolean
+  accepts_transfer?: boolean
+  transfer_alias?: string
+  accepts_card?: boolean
+  cash_discount_percentage?: number
+  hero_cta_text?: string
+  hero_overlay_opacity?: 'dark' | 'medium' | 'light'
+  footer_custom_text?: string
 }
+
+// In-memory fallback for restaurant custom branding if Supabase table columns are pending migration
+const inMemoryRestaurantBranding = new Map<string, Partial<RestaurantInfo>>()
 
 export const FALLBACK_RESTAURANT: RestaurantInfo = {
   id: 'b326adf8-3a44-4736-bf3e-06e1e6bba946',
@@ -15,7 +50,133 @@ export const FALLBACK_RESTAURANT: RestaurantInfo = {
   subdomain: 'don-carlos',
   address: 'Av. San Martín 1420',
   phone: '+54 9 11 4455-8899',
-  description: 'Comida casera, horno a leña y recetas familiares desde 1994.'
+  description: 'Comida casera, horno a leña y recetas familiares desde 1994.',
+  whatsapp_number: '+54 9 11 4455-8899',
+  instagram_handle: '@doncarlos.rotiseria',
+  facebook_url: '',
+  tiktok_handle: '',
+  google_maps_url: '',
+  opening_hours: 'Martes a Domingo: 19:30 a 23:45',
+  logo_url: '',
+  banner_url: '/hero_rotiseria.jpg',
+  primary_color: '#e59324',
+  secondary_color: '#d34e2c',
+  theme_style: 'rustic',
+  font_style: 'serif',
+  announcement_banner: '🔥 Horno encendido y cocina despachando pedidos en vivo',
+  announcement_enabled: true,
+  estimated_delivery_time: '35-45 min',
+  highlight_tag_1: 'Horno a Leña & Fuego',
+  highlight_tag_2: '100% Casero',
+  highlight_tag_3: 'Atención Directa',
+  is_store_open: true,
+  closed_message: 'Horno cerrado por el momento. ¡Abrimos pronto!',
+  min_order_amount: 0,
+  delivery_cost: 'A coordinar',
+  accepts_cash: true,
+  accepts_transfer: true,
+  transfer_alias: 'doncarlos.rotiseria.mp',
+  accepts_card: true,
+  cash_discount_percentage: 10,
+  hero_cta_text: 'Pedir al plato',
+  hero_overlay_opacity: 'dark',
+  footer_custom_text: 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.'
+}
+
+/**
+ * Optimiza y comprime imágenes del lado del cliente en un canvas liviano
+ */
+export async function compressAndPrepareImage(
+  file: File, 
+  maxDimension = 800, 
+  quality = 0.85
+): Promise<string> {
+  if (file.type === 'image/svg+xml') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width)
+            width = maxDimension
+          } else {
+            width = Math.round((width * maxDimension) / height)
+            height = maxDimension
+          }
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(e.target?.result as string)
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+        const format = file.type === 'image/png' ? 'image/png' : 'image/webp'
+        resolve(canvas.toDataURL(format, quality))
+      }
+      img.onerror = reject
+      img.src = e.target?.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Sube una imagen a Supabase Storage (o genera Data URL optimizado como fallback sin fallos)
+ */
+export async function uploadRestaurantMedia(
+  file: File,
+  type: 'logo' | 'banner' | 'product',
+  restaurantId: string
+): Promise<string> {
+  const maxDim = type === 'logo' ? 512 : type === 'product' ? 900 : 1600
+  const dataUrl = await compressAndPrepareImage(file, maxDim, 0.85)
+
+  try {
+    const ext = file.name.split('.').pop() || 'webp'
+    const fileName = `${type}s/${restaurantId}-${Date.now()}.${ext}`
+    
+    const res = await fetch(dataUrl)
+    const blob = await res.blob()
+
+    const { data, error } = await supabase.storage
+      .from('restaurant-media')
+      .upload(fileName, blob, {
+        cacheControl: '3600',
+        upsert: true
+      })
+
+    if (!error && data) {
+      const { data: publicData } = supabase.storage
+        .from('restaurant-media')
+        .getPublicUrl(data.path)
+      if (publicData?.publicUrl) {
+        return publicData.publicUrl
+      }
+    }
+  } catch (storageErr) {
+    console.info('Supabase storage fallback to inline data URL:', storageErr)
+  }
+
+  return dataUrl
 }
 
 export const SAMPLE_RESTAURANTS: RestaurantInfo[] = [
@@ -25,7 +186,18 @@ export const SAMPLE_RESTAURANTS: RestaurantInfo[] = [
     subdomain: 'roti-castelli',
     address: 'Castelli 890, Centro',
     phone: '+54 9 11 4321-7788',
-    description: 'Pollos al spiedo dorados y empanadas tradicionales.'
+    description: 'Pollos al spiedo dorados y empanadas tradicionales.',
+    whatsapp_number: '+54 9 11 4321-7788',
+    instagram_handle: '@roticastelli',
+    opening_hours: 'Lunes a Sábado: 11:30 a 14:30 y 19:30 a 23:30',
+    logo_url: '',
+    banner_url: '/hero_rotiseria.jpg',
+    primary_color: '#e59324',
+    secondary_color: '#d34e2c',
+    estimated_delivery_time: '30-40 min',
+    highlight_tag_1: 'Pollo al Spiedo',
+    highlight_tag_2: 'Empanadas al Horno',
+    highlight_tag_3: 'Envíos Rápidos'
   },
   {
     id: '11111111-2222-3333-4444-555555555555',
@@ -33,7 +205,18 @@ export const SAMPLE_RESTAURANTS: RestaurantInfo[] = [
     subdomain: 'don-carlos',
     address: 'Av. San Martín 1420',
     phone: '+54 9 11 4455-8899',
-    description: 'Comida casera al horno de barro y minutas al instante.'
+    description: 'Comida casera al horno de barro y minutas al instante.',
+    whatsapp_number: '+54 9 11 4455-8899',
+    instagram_handle: '@doncarlos_ok',
+    opening_hours: 'Martes a Domingo: 19:30 a 23:45',
+    logo_url: '',
+    banner_url: '/hero_rotiseria.jpg',
+    primary_color: '#e59324',
+    secondary_color: '#d34e2c',
+    estimated_delivery_time: '35-45 min',
+    highlight_tag_1: 'Horno a Leña & Fuego',
+    highlight_tag_2: '100% Casero',
+    highlight_tag_3: 'Atención Directa'
   },
   {
     id: '22222222-3333-4444-5555-666666666666',
@@ -41,7 +224,18 @@ export const SAMPLE_RESTAURANTS: RestaurantInfo[] = [
     subdomain: 'la-nonna',
     address: 'Paseo Colón 740, San Telmo',
     phone: '+54 9 11 9876-5432',
-    description: 'Pastas amasadas a mano y milanesas tamaño gigante.'
+    description: 'Pastas amasadas a mano y milanesas tamaño gigante.',
+    whatsapp_number: '+54 9 11 9876-5432',
+    instagram_handle: '@bodegon_lanonna',
+    opening_hours: 'Miércoles a Domingo: 12:00 a 15:30 y 20:00 a 00:00',
+    logo_url: '',
+    banner_url: '/artisanal_dishes.jpg',
+    primary_color: '#dc2626',
+    secondary_color: '#991b1b',
+    estimated_delivery_time: '40-50 min',
+    highlight_tag_1: 'Pastas Frescas Caseras',
+    highlight_tag_2: 'Milanesas XL',
+    highlight_tag_3: 'Tradición Italiana'
   }
 ]
 
@@ -216,11 +410,18 @@ export async function getPublicTenantId() {
   return tenantId
 }
 
+// Helper para fusionar branding personalizado
+function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
+  const custom = inMemoryRestaurantBranding.get(rest.id) || inMemoryRestaurantBranding.get(rest.subdomain.toLowerCase())
+  if (!custom) return rest
+  return { ...rest, ...custom }
+}
+
 // Obtener restaurante por subdominio o ID
 export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantInfo> {
   const cacheKey = `restaurant:${idOrSubdomain || 'default'}`
   const cached = getCached<RestaurantInfo>(cacheKey)
-  if (cached) return cached
+  if (cached) return mergeBranding(cached)
 
   // Quick match in sample restaurants
   const sampleMatch = SAMPLE_RESTAURANTS.find(
@@ -236,8 +437,9 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
       .then(({ data }) => data || FALLBACK_RESTAURANT)
 
     const result = await withTimeout(query, 1200, FALLBACK_RESTAURANT)
-    setCached(cacheKey, result, 60)
-    return result
+    const merged = mergeBranding(result)
+    setCached(cacheKey, merged, 60)
+    return merged
   }
 
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrSubdomain)
@@ -245,7 +447,7 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
   const query = (async () => {
     if (isUuid) {
       const { data } = await supabase.from('restaurants').select('*').eq('id', idOrSubdomain).maybeSingle()
-      if (data) return data
+      if (data) return mergeBranding(data)
     }
 
     const { data } = await supabase
@@ -254,14 +456,14 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
       .ilike('subdomain', idOrSubdomain)
       .maybeSingle()
 
-    if (data) return data
-    if (sampleMatch) return sampleMatch
+    if (data) return mergeBranding(data)
+    if (sampleMatch) return mergeBranding(sampleMatch)
 
-    return {
+    return mergeBranding({
       ...FALLBACK_RESTAURANT,
       name: `Rotisería ${idOrSubdomain.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
       subdomain: idOrSubdomain
-    }
+    })
   })()
 
   const fallback = sampleMatch || {
@@ -271,33 +473,70 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
   }
 
   const result = await withTimeout(query, 1200, fallback)
-  setCached(cacheKey, result, 60)
-  return result
+  const merged = mergeBranding(result)
+  setCached(cacheKey, merged, 60)
+  return merged
 }
 
 /**
  * Busca un comercio por subdominio SIN inventar uno: devuelve null si no existe.
- * (getRestaurant devuelve datos de otro local como fallback, lo que hacía que
- * un subdominio desconocido mostrara la tienda equivocada.)
  */
 export async function getRestaurantStrict(subdomain: string): Promise<RestaurantInfo | null> {
   const slug = subdomain.trim().toLowerCase()
   const cacheKey = `restaurant_strict:${slug}`
   const cached = getCached<RestaurantInfo | null>(cacheKey)
-  if (cached !== null) return cached
+  if (cached !== null) return cached ? mergeBranding(cached) : null
 
   const sampleMatch = SAMPLE_RESTAURANTS.find(r => r.subdomain.toLowerCase() === slug) || null
 
   const query = Promise.resolve(
     supabase.from('restaurants').select('*').ilike('subdomain', slug).maybeSingle()
   ).then(({ data, error }) => {
-    if (error) return sampleMatch
-    return (data as RestaurantInfo | null) || sampleMatch
+    if (error) return sampleMatch ? mergeBranding(sampleMatch) : null
+    const res = (data as RestaurantInfo | null) || sampleMatch
+    return res ? mergeBranding(res) : null
   })
 
   const result = await withTimeout<RestaurantInfo | null>(query, 3000, sampleMatch)
-  if (result) setCached(cacheKey, result, 60)
-  return result
+  const merged = result ? mergeBranding(result) : null
+  if (merged) setCached(cacheKey, merged, 60)
+  return merged
+}
+
+// Guarda la configuración completa y branding de un restaurante
+export async function updateRestaurantBranding(
+  restaurantId: string, 
+  data: Partial<RestaurantInfo>
+) {
+  // Guardar en respaldo en memoria de inmediato para reactividad total
+  const current = inMemoryRestaurantBranding.get(restaurantId) || {}
+  inMemoryRestaurantBranding.set(restaurantId, { ...current, ...data })
+
+  try {
+    const { error } = await supabase
+      .from('restaurants')
+      .update(data)
+      .eq('id', restaurantId)
+
+    if (error) {
+      console.warn('Could not update all restaurant columns in DB (pending migration?):', error.message)
+      // Si falló por columnas que aún no existen, intentamos actualizar solo los campos básicos
+      const basicFields: any = {}
+      if (data.name) basicFields.name = data.name
+      if (data.description) basicFields.description = data.description
+      if (data.address) basicFields.address = data.address
+      if (data.phone) basicFields.phone = data.phone
+      if (Object.keys(basicFields).length > 0) {
+        await supabase.from('restaurants').update(basicFields).eq('id', restaurantId)
+      }
+    }
+  } catch (err) {
+    console.warn('DB update error for restaurant branding:', err)
+  }
+
+  invalidateCache('restaurant')
+  invalidateCache('all_restaurants')
+  return true
 }
 
 export async function getAllRestaurants(): Promise<RestaurantInfo[]> {
@@ -346,6 +585,292 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
   return result
 }
 
+export interface ProductIngredientItem {
+  id?: string
+  product_id?: string
+  inventory_item_id: string
+  quantity: number
+  inventory_items?: {
+    id: string
+    name: string
+    unit: string
+    quantity_available: number
+  }
+}
+
+export interface ProductItem {
+  id: string
+  restaurant_id: string
+  code: string
+  name: string
+  description?: string
+  price: number
+  category: string
+  is_available: boolean
+  image_url?: string
+  ingredients?: string[]
+  product_ingredients?: ProductIngredientItem[]
+}
+
+// In-memory fallback map for recipes when Supabase migration is not yet applied
+const inMemoryRecipes = new Map<string, { inventory_item_id: string; quantity: number }[]>()
+
+// --- Admin Product CRUD ---
+export async function getAdminProducts(restaurantId?: string): Promise<ProductItem[]> {
+  const cacheKey = `admin_products:${restaurantId || 'all'}`
+  const cached = getCached<ProductItem[]>(cacheKey)
+  if (cached) return cached
+
+  let builder = supabase.from('products').select(`
+    *,
+    product_ingredients (
+      id,
+      product_id,
+      inventory_item_id,
+      quantity,
+      inventory_items:inventory_item_id (
+        id,
+        name,
+        unit,
+        quantity_available
+      )
+    )
+  `)
+
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const query = builder.order('name', { ascending: true }).then(async ({ data, error }) => {
+    // Si la relación falla (por ejemplo tabla product_ingredients no existe aún en Supabase)
+    if (error) {
+      console.warn('Falling back to plain products query:', error.message)
+      let plainBuilder = supabase.from('products').select('*')
+      if (restaurantId) plainBuilder = plainBuilder.eq('restaurant_id', restaurantId)
+      const { data: plainData } = await plainBuilder.order('name', { ascending: true })
+      
+      const list = plainData || (restaurantId ? [] : ARTISANAL_FALLBACK_PRODUCTS)
+      return list.map((p: any) => ({
+        ...p,
+        product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
+          ...r,
+          product_id: p.id
+        }))
+      }))
+    }
+
+    if (data && (data.length > 0 || restaurantId)) {
+      return data.map((p: any) => {
+        // Enlazar también si había en memoria
+        const mem = inMemoryRecipes.get(p.id)
+        if ((!p.product_ingredients || p.product_ingredients.length === 0) && mem) {
+          return {
+            ...p,
+            product_ingredients: mem.map(r => ({ ...r, product_id: p.id }))
+          }
+        }
+        return p
+      })
+    }
+    return restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS as any[])
+  })
+
+  const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS as any[])
+  const result = await withTimeout(query, 1500, fallback)
+  setCached(cacheKey, result, 30)
+  return result
+}
+
+export async function saveProduct(
+  productData: {
+    id?: string
+    name: string
+    code?: string
+    description?: string
+    price: number
+    category: string
+    is_available?: boolean
+    image_url?: string
+  },
+  recipe: { inventory_item_id: string; quantity: number }[],
+  restaurantId: string
+) {
+  const code = productData.code?.trim() || 
+    productData.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 10) + '-' + Math.floor(Math.random() * 900 + 100)
+
+  let productId = productData.id
+
+  if (productId) {
+    // Actualizar producto existente
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name: productData.name,
+        code,
+        description: productData.description || '',
+        price: Number(productData.price),
+        category: productData.category,
+        is_available: productData.is_available ?? true,
+        image_url: productData.image_url || ''
+      })
+      .eq('id', productId)
+      .eq('restaurant_id', restaurantId)
+
+    if (error) throw error
+  } else {
+    // Crear nuevo producto
+    const { data: newProd, error } = await supabase
+      .from('products')
+      .insert({
+        restaurant_id: restaurantId,
+        name: productData.name,
+        code,
+        description: productData.description || '',
+        price: Number(productData.price),
+        category: productData.category,
+        is_available: productData.is_available ?? true,
+        image_url: productData.image_url || ''
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    productId = newProd.id
+  }
+
+  // Guardar receta en memoria de respaldo
+  if (productId) {
+    inMemoryRecipes.set(productId, recipe)
+  }
+
+  // Guardar receta en la tabla product_ingredients si existe
+  if (productId) {
+    try {
+      await supabase.from('product_ingredients').delete().eq('product_id', productId)
+
+      if (recipe.length > 0) {
+        const rows = recipe.map(r => ({
+          restaurant_id: restaurantId,
+          product_id: productId,
+          inventory_item_id: r.inventory_item_id,
+          quantity: Number(r.quantity)
+        }))
+        const { error: ingError } = await supabase.from('product_ingredients').insert(rows)
+        if (ingError) {
+          console.warn('Could not insert product_ingredients table (using in-memory fallback):', ingError.message)
+        }
+      }
+    } catch (e) {
+      console.warn('product_ingredients table error:', e)
+    }
+  }
+
+  invalidateCache('products')
+  invalidateCache('admin_products')
+  return productId
+}
+
+export async function deleteProduct(productId: string, restaurantId?: string) {
+  let builder = supabase.from('products').delete().eq('id', productId)
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const { error } = await builder
+  if (error) throw error
+
+  inMemoryRecipes.delete(productId)
+  invalidateCache('products')
+  invalidateCache('admin_products')
+}
+
+export async function toggleProductAvailability(productId: string, isAvailable: boolean) {
+  const { error } = await supabase
+    .from('products')
+    .update({ is_available: isAvailable })
+    .eq('id', productId)
+
+  if (error) throw error
+  invalidateCache('products')
+  invalidateCache('admin_products')
+}
+
+// Descuenta automáticamente los insumos consumidos del inventario según la receta
+export async function deductInventoryForItems(
+  items: { product_id: string; quantity: number }[],
+  restaurantId: string
+) {
+  if (!items || items.length === 0) return
+
+  // 1. Obtener recetas de la base de datos o fallback
+  const productIds = items.map(i => i.product_id)
+  
+  let ingredientsMap = new Map<string, { inventory_item_id: string; quantity: number }[]>()
+
+  try {
+    const { data: dbIngredients } = await supabase
+      .from('product_ingredients')
+      .select('product_id, inventory_item_id, quantity')
+      .in('product_id', productIds)
+
+    if (dbIngredients && dbIngredients.length > 0) {
+      for (const ing of dbIngredients) {
+        const list = ingredientsMap.get(ing.product_id) || []
+        list.push({ inventory_item_id: ing.inventory_item_id, quantity: Number(ing.quantity) })
+        ingredientsMap.set(ing.product_id, list)
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading product_ingredients for deduction:', e)
+  }
+
+  // Complementar con inMemoryRecipes si no estaban en base
+  for (const pid of productIds) {
+    if (!ingredientsMap.has(pid) && inMemoryRecipes.has(pid)) {
+      ingredientsMap.set(pid, inMemoryRecipes.get(pid)!)
+    }
+  }
+
+  // 2. Calcular el total a descontar por cada item del inventario
+  const totalDeductions = new Map<string, number>()
+  for (const item of items) {
+    const recipe = ingredientsMap.get(item.product_id)
+    if (recipe) {
+      for (const ing of recipe) {
+        const current = totalDeductions.get(ing.inventory_item_id) || 0
+        totalDeductions.set(ing.inventory_item_id, current + (Number(item.quantity) * Number(ing.quantity)))
+      }
+    }
+  }
+
+  // 3. Aplicar las deducciones al inventario
+  for (const [inventoryItemId, deduction] of Array.from(totalDeductions.entries())) {
+    try {
+      const { data: currentItem } = await supabase
+        .from('inventory_items')
+        .select('quantity_available')
+        .eq('id', inventoryItemId)
+        .maybeSingle()
+
+      if (currentItem) {
+        const newQty = Math.max(0, Number(currentItem.quantity_available) - deduction)
+        await supabase
+          .from('inventory_items')
+          .update({ quantity_available: newQty })
+          .eq('id', inventoryItemId)
+
+        // Registrar movimiento de salida
+        await supabase.from('inventory_movements').insert({
+          item_id: inventoryItemId,
+          quantity_change: -deduction,
+          movement_type: 'out'
+        })
+      }
+    } catch (err) {
+      console.warn('Error updating inventory item deduction:', inventoryItemId, err)
+    }
+  }
+
+  invalidateCache('all_inventory')
+  invalidateCache('critical_inventory')
+}
+
 // --- Orders (Public & Admin) ---
 export async function createOrder(
   order: {
@@ -382,6 +907,13 @@ export async function createOrder(
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
 
   if (itemsError) throw itemsError
+
+  // Descontar automáticamente del inventario según las recetas de los productos
+  try {
+    await deductInventoryForItems(items, id)
+  } catch (deductErr) {
+    console.warn('Could not auto-deduct inventory for order:', deductErr)
+  }
 
   invalidateCache('orders')
   invalidateCache('today_orders')
