@@ -49,7 +49,7 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-20">
             
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-3 group">
+            <Link href="/" className="flex items-center space-x-3 group shrink-0">
               <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-2.5 rounded-xl group-hover:rotate-6 transition-all duration-300 shadow-md shadow-orange-950/50 border border-amber-500/20">
                 <Flame className="w-6 h-6 text-[#ffd5a8]" />
               </div>
@@ -64,7 +64,7 @@ export default function LandingPage() {
             </Link>
 
             {/* Navigation Links */}
-            <nav className="hidden lg:flex items-center space-x-8 text-sm font-medium text-[#dcd0c5]">
+            <nav className="hidden xl:flex items-center gap-6 2xl:gap-8 text-sm font-medium text-[#dcd0c5] whitespace-nowrap">
               <a href="#solucion" className="hover:text-[#e59324] transition-colors">¿Por qué ComandApp?</a>
               <a href="#modulos" className="hover:text-[#e59324] transition-colors">Módulos</a>
               <a href="#subdominio" className="hover:text-[#e59324] transition-colors">Tu Subdominio</a>
@@ -74,7 +74,7 @@ export default function LandingPage() {
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-3 shrink-0 whitespace-nowrap">
               <Link 
                 href="/tienda" 
                 className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[#faede0] bg-[#2b211a] hover:bg-[#382b22] px-3.5 py-2 rounded-xl border border-[#4d3a2c] transition-all font-medium"
