@@ -9,6 +9,15 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-serif'
 export const metadata: Metadata = {
   title: 'ComandApp | El Sistema Gastronómico Hecho en Casa',
   description: 'ComandApp: Sistema integral de gestión, comandas de cocina en vivo y e-commerce para rotiserías, casas de comida y locales gastronómicos.',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon',
+  },
+  metadataBase: new URL('https://comandapp.com'),
+  other: {
+    'theme-color': '#151210',
+    'msapplication-TileColor': '#d34e2c',
+  },
 }
 
 export default function RootLayout({
