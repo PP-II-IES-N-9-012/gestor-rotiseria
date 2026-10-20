@@ -4,14 +4,16 @@ import { Clock, CheckCircle2, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getOrdersByStatus, updateOrderStatus } from '@/lib/api'
+import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function KitchenPage() {
+  const restaurantId = useAdminRestaurant()?.id
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadOrders = async () => {
     try {
-      const data = await getOrdersByStatus(['pending', 'preparing', 'ready'])
+      const data = await getOrdersByStatus(['pending', 'preparing', 'ready'], restaurantId)
       setOrders(data || [])
     } catch (error) {
       console.error("Error loading orders", error)
@@ -23,14 +25,15 @@ export default function KitchenPage() {
   useEffect(() => {
     loadOrders()
 
-    // Subscribe to realtime changes in orders
+    // Subscribe to realtime changes in orders (only this restaurant's)
     const subscription = supabase
-      .channel('kitchen-orders')
+      .channel(`kitchen-orders-${restaurantId || 'all'}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'orders'
-      }, (payload) => {
+        table: 'orders',
+        ...(restaurantId ? { filter: `restaurant_id=eq.${restaurantId}` } : {})
+      }, () => {
         // When there is a change, reload orders to get relationships as well
         loadOrders()
       })
@@ -39,7 +42,8 @@ export default function KitchenPage() {
     return () => {
       supabase.removeChannel(subscription)
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId])
 
   const handleUpdateStatus = async (orderId: string, status: string) => {
     try {

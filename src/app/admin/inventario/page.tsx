@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react'
 import { PackageSearch, Loader2, Plus, Edit2, AlertCircle } from 'lucide-react'
 import { getAllInventory, refillInventory } from '@/lib/api'
+import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function InventoryPage() {
+  const restaurantId = useAdminRestaurant()?.id
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadInventory = async () => {
     try {
-      const data = await getAllInventory()
+      const data = await getAllInventory(restaurantId)
       setItems(data || [])
     } catch (error) {
       console.error("Error loading inventory", error)
@@ -21,7 +23,8 @@ export default function InventoryPage() {
 
   useEffect(() => {
     loadInventory()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId])
 
   const handleRefill = async (id: string, name: string) => {
     const amountStr = window.prompt(`¿Cuántas unidades de ${name} deseas agregar?`)

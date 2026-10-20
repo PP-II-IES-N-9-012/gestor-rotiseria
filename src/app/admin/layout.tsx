@@ -15,6 +15,9 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
+import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
+import { AdminRestaurantContext } from '@/lib/AdminContext'
+import { buildTenantUrl, getClientTenant, tenantPath } from '@/lib/tenant'
 
 const navigation = [
   { name: 'Gerencia (KPIs)', href: '/admin', icon: LayoutDashboard },
@@ -27,52 +30,84 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [restaurant, setRestaurant] = useState<RestaurantInfo | null>(null)
 
   useEffect(() => {
-    const isDemo = typeof window !== 'undefined' && (
+    let cancelled = false
+    const hostTenant = getClientTenant()
+    const isDemo =
       localStorage.getItem('demo_auth') === 'true' ||
-      new URLSearchParams(window.location.search).get('demo') === 'true' ||
-      process.env.NODE_ENV === 'development'
-    )
+      new URLSearchParams(window.location.search).get('demo') === 'true'
 
-    if (isDemo) {
-      setLoading(false)
-      return
-    }
-
-    const checkAuth = async () => {
+    const init = async () => {
       try {
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null } }), 1500)
+          setTimeout(() => resolve({ data: { session: null } }), 3000)
         )
-        const sessionPromise = supabase.auth.getSession()
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise])
+        const { data: { session } } = await Promise.race([supabase.auth.getSession(), timeoutPromise])
+        if (cancelled) return
 
-        if (!session) {
-          router.push('/login')
-        } else {
-          setLoading(false)
+        if (session) {
+          // El local del admin sale de su perfil, no de una URL "general"
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('restaurant_id')
+            .eq('id', session.user.id)
+            .maybeSingle()
+          if (cancelled) return
+
+          if (profile?.restaurant_id) {
+            const own = await getRestaurant(profile.restaurant_id)
+            if (cancelled) return
+
+            if (hostTenant && own.subdomain.toLowerCase() !== hostTenant) {
+              // Está en el subdominio de otro local: lo llevamos al suyo
+              await supabase.auth.signOut()
+              window.location.href = buildTenantUrl(own.subdomain, '/login?error=otro-local')
+              return
+            }
+            setRestaurant(own)
+            setLoading(false)
+            return
+          }
         }
-      } catch {
+
+        if (isDemo) {
+          // Demo: el local sale del subdominio (si hay), no de datos genéricos
+          const demoRestaurant = hostTenant ? await getRestaurantStrict(hostTenant) : null
+          if (cancelled) return
+          setRestaurant(demoRestaurant)
+          setLoading(false)
+          return
+        }
+
         router.push('/login')
+      } catch {
+        if (!cancelled) router.push('/login')
       }
     }
 
-    checkAuth()
+    init()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session && !isDemo) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && !isDemo) {
         router.push('/login')
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [router])
 
   const handleLogout = async () => {
+    localStorage.removeItem('demo_auth')
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  const storeHref = restaurant ? tenantPath('/tienda', restaurant.subdomain) : '/tienda'
 
   if (loading) {
     return (
@@ -83,6 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
+    <AdminRestaurantContext.Provider value={restaurant}>
     <div className="flex h-screen bg-[#151210] text-[#fcf9f5] overflow-hidden selection:bg-[#d34e2c] selection:text-white">
       {/* Sidebar */}
       <aside className="w-64 bg-[#1b1511] border-r border-[#382b21] flex flex-col justify-between hidden md:flex">
@@ -96,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span className="font-rustic text-xl font-bold tracking-tight text-white">
                   Comand<span className="text-[#e59324]">App</span>
                 </span>
-                <span className="text-[10px] text-[#bda086] -mt-1 font-semibold">Panel de Cocina</span>
+                <span className="text-[10px] text-[#bda086] -mt-1 font-semibold truncate max-w-[10rem]">{restaurant?.name || 'Panel de Cocina'}</span>
               </div>
             </Link>
           </div>
@@ -125,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <div className="pt-4 border-t border-[#31251e] mt-4">
               <Link 
-                href="/tienda" 
+                href={storeHref}
                 target="_blank"
                 className="flex items-center px-3 py-2.5 text-xs text-[#a88a70] hover:text-[#e59324] hover:bg-[#281f18] rounded-xl transition-colors gap-2"
               >
@@ -170,5 +206,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </main>
     </div>
+    </AdminRestaurantContext.Provider>
   )
 }

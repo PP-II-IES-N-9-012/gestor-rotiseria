@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import { Search, Flame, Clock, CheckCircle2, Utensils, ChefHat, Loader2, Sparkles } from 'lucide-react'
 import { getOrderById } from '@/lib/api'
+import { useStoreTenant } from '@/lib/useStoreTenant'
 
 export default function TrackingPage() {
+  const { restaurant } = useStoreTenant()
   const [orderId, setOrderId] = useState('')
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -19,7 +21,7 @@ export default function TrackingPage() {
     setOrder(null)
 
     try {
-      const data = await getOrderById(orderId.trim())
+      const data = await getOrderById(orderId.trim(), restaurant?.id)
       if (data) {
         setOrder(data)
       } else {

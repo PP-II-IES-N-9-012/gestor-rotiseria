@@ -1,17 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Flame, Loader2, Lock, Mail, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
+import { buildTenantUrl, getClientTenant, matchRootDomain } from '@/lib/tenant'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [tenantInfo, setTenantInfo] = useState<RestaurantInfo | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('error') === 'otro-local') {
+      setError('Tu cuenta pertenece a otro local. Ingresá de nuevo desde su dirección.')
+    }
+
+    // Mostrar a qué local se está entrando (según el subdominio)
+    const slug = getClientTenant()
+    if (slug) getRestaurantStrict(slug).then(setTenantInfo)
+
+    // Recibir la sesión si venimos de iniciar sesión en el dominio general.
+    // (La sesión vive en localStorage, que es distinto en cada subdominio.)
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const at = hash.get('sat')
+    const rt = hash.get('srt')
+    if (at && rt) {
+      window.history.replaceState(null, '', window.location.pathname)
+      setLoading(true)
+      supabase.auth.setSession({ access_token: at, refresh_token: rt }).then(({ error: sessionError }) => {
+        if (sessionError) {
+          setLoading(false)
+          setError('No se pudo continuar la sesión. Ingresá nuevamente.')
+        } else {
+          router.push('/admin')
+        }
+      })
+    }
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,10 +66,31 @@ export default function LoginPage() {
         .single()
 
       if (profileError || !profile) {
+        await supabase.auth.signOut()
         throw new Error('No tienes un local asignado a tu perfil.')
       }
 
-      // If successful, redirect to admin dashboard
+      const own = await getRestaurant(profile.restaurant_id)
+      const hostTenant = getClientTenant()
+
+      // En el subdominio de otro local no se puede entrar
+      if (hostTenant && own.subdomain.toLowerCase() !== hostTenant) {
+        await supabase.auth.signOut()
+        throw new Error('Esta cuenta no pertenece a este local.')
+      }
+
+      // Login en el dominio general: llevamos al admin al subdominio de SU local
+      if (!hostTenant && matchRootDomain(window.location.host) && data.session) {
+        const target = buildTenantUrl(own.subdomain, '/login')
+        const hash = new URLSearchParams({
+          sat: data.session.access_token,
+          srt: data.session.refresh_token
+        })
+        await supabase.auth.signOut({ scope: 'local' })
+        window.location.href = `${target}#${hash.toString()}`
+        return
+      }
+
       router.push('/admin')
       
     } catch (err: any) {
@@ -71,7 +124,7 @@ export default function LoginPage() {
             Comand<span className="text-[#e59324]">App</span>
           </h1>
           <p className="text-[#bfa38c] mt-1 text-xs text-center font-medium">
-            Panel de Cocina & Gestión de tu Rotisería
+            {tenantInfo ? `Panel de ${tenantInfo.name}` : 'Panel de Cocina & Gestión de tu Rotisería'}
           </p>
         </div>
 

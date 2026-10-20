@@ -1,57 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-
-// Subdominios reservados que no corresponden a un comercio
-const RESERVED_SUBDOMAINS = new Set([
-  'www',
-  'api',
-  'admin',
-  'app',
-  'mail',
-  'ftp',
-  'localhost',
-  '127',
-  'test',
-  'staging'
-])
-
-// Dominios raíz propios cuyos subdominios representan comercios.
-// Configurable con NEXT_PUBLIC_ROOT_DOMAINS (separados por coma).
-// Hosts como "*.vercel.app" NO están acá: el subdominio ahí es el nombre del
-// proyecto, no un comercio. En esos casos se usa /tienda/<slug> o ?negocio=<slug>.
-const ROOT_DOMAINS = (process.env.NEXT_PUBLIC_ROOT_DOMAINS || 'comandapp.com,localhost')
-  .split(',')
-  .map(d => d.trim().toLowerCase())
-  .filter(Boolean)
+import { extractSubdomain } from '@/lib/tenant'
 
 export default function proxy(request: NextRequest) {
   const url = request.nextUrl
   const hostname = request.headers.get('host') || ''
-  
-  // Extraer el host sin puerto (ej: "don-carlos.localhost:3000" -> "don-carlos.localhost")
-  const hostWithoutPort = hostname.split(':')[0].toLowerCase()
 
-  // Detectar subdominio solo si el host termina en alguno de los dominios raíz
-  // "don-carlos.comandapp.com" -> "don-carlos"
-  // "don-carlos.localhost" -> "don-carlos"
-  // "comandapp-weld.vercel.app" -> null (landing)
-  let tenantSubdomain: string | null = null
+  // "don-carlos.comandapp.com" / "don-carlos.localhost:3000" -> "don-carlos"
+  // "comandapp-weld.vercel.app" / "localhost:3000" -> null (landing)
+  let tenantSubdomain: string | null = extractSubdomain(hostname)
 
-  for (const root of ROOT_DOMAINS) {
-    if (hostWithoutPort.endsWith(`.${root}`)) {
-      const sub = hostWithoutPort.slice(0, -(root.length + 1))
-      // Solo un nivel de subdominio, no reservado
-      if (sub && !sub.includes('.') && !RESERVED_SUBDOMAINS.has(sub) && isNaN(Number(sub))) {
-        tenantSubdomain = sub
-      }
-      break
-    }
-  }
-
-  // Soporte adicional: Si se pasa ?negocio=xxx o ?subdomain=xxx en query params
+  // Soporte adicional: ?negocio=xxx o ?subdomain=xxx (hosts sin subdominios propios)
   const queryTenant = url.searchParams.get('negocio') || url.searchParams.get('subdomain')
   if (queryTenant && !tenantSubdomain) {
-    tenantSubdomain = queryTenant
+    tenantSubdomain = queryTenant.toLowerCase()
   }
 
   // Clientes con subdominio propio:
@@ -61,22 +23,11 @@ export default function proxy(request: NextRequest) {
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-tenant-subdomain', tenantSubdomain)
 
-    // Si accede a la raíz de su subdominio, mostramos la tienda de ese cliente
-    if (url.pathname === '/') {
+    // La raíz y /tienda de un subdominio muestran la tienda de ese comercio.
+    // /carrito, /seguimiento, /login y /admin siguen siendo las mismas rutas;
+    // resuelven el comercio con el header / el host (ver lib/tenant.ts).
+    if (url.pathname === '/' || url.pathname === '/tienda') {
       return NextResponse.rewrite(new URL(`/tienda/${tenantSubdomain}`, request.url), {
-        request: { headers: requestHeaders }
-      })
-    }
-
-    // Rutas internas de la tienda
-    if (url.pathname === '/carrito') {
-      return NextResponse.rewrite(new URL(`/tienda/${tenantSubdomain}/carrito`, request.url), {
-        request: { headers: requestHeaders }
-      })
-    }
-
-    if (url.pathname === '/seguimiento') {
-      return NextResponse.rewrite(new URL(`/tienda/${tenantSubdomain}/seguimiento`, request.url), {
         request: { headers: requestHeaders }
       })
     }

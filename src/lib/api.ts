@@ -275,6 +275,31 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
   return result
 }
 
+/**
+ * Busca un comercio por subdominio SIN inventar uno: devuelve null si no existe.
+ * (getRestaurant devuelve datos de otro local como fallback, lo que hacía que
+ * un subdominio desconocido mostrara la tienda equivocada.)
+ */
+export async function getRestaurantStrict(subdomain: string): Promise<RestaurantInfo | null> {
+  const slug = subdomain.trim().toLowerCase()
+  const cacheKey = `restaurant_strict:${slug}`
+  const cached = getCached<RestaurantInfo | null>(cacheKey)
+  if (cached !== null) return cached
+
+  const sampleMatch = SAMPLE_RESTAURANTS.find(r => r.subdomain.toLowerCase() === slug) || null
+
+  const query = Promise.resolve(
+    supabase.from('restaurants').select('*').ilike('subdomain', slug).maybeSingle()
+  ).then(({ data, error }) => {
+    if (error) return sampleMatch
+    return (data as RestaurantInfo | null) || sampleMatch
+  })
+
+  const result = await withTimeout<RestaurantInfo | null>(query, 3000, sampleMatch)
+  if (result) setCached(cacheKey, result, 60)
+  return result
+}
+
 export async function getAllRestaurants(): Promise<RestaurantInfo[]> {
   const cached = getCached<RestaurantInfo[]>('all_restaurants')
   if (cached) return cached
@@ -309,7 +334,8 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
       .eq('restaurant_id', id)
       .eq('is_available', true)
     
-    if (!error && data && data.length > 0) {
+    const isSample = SAMPLE_RESTAURANTS.some(r => r.id === id) || id === FALLBACK_RESTAURANT.id
+    if (!error && data && (data.length > 0 || !isSample)) {
       return data
     }
     return ARTISANAL_FALLBACK_PRODUCTS
@@ -470,12 +496,12 @@ export const SAMPLE_INVENTORY = [
   { id: 'inv-7', name: 'Huevos de Campo', quantity_available: 60, unit: 'unidades', min_stock: 30 }
 ]
 
-export async function getOrdersByStatus(statuses: string[]) {
-  const cacheKey = `orders:${statuses.slice().sort().join(',')}`
+export async function getOrdersByStatus(statuses: string[], restaurantId?: string) {
+  const cacheKey = `orders:${restaurantId || 'all'}:${statuses.slice().sort().join(',')}`
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
-  const query = supabase
+  let builder = supabase
     .from('orders')
     .select(`
       *,
@@ -488,6 +514,9 @@ export async function getOrdersByStatus(statuses: string[]) {
       )
     `)
     .in('status', statuses)
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const query = builder
     .order('created_at', { ascending: true })
     .then(({ data, error }) => {
       if (!error && data && data.length > 0) return data
@@ -515,8 +544,9 @@ export async function updateOrderStatus(orderId: string, status: string) {
   invalidateCache('today_orders')
 }
 
-export async function getTodayOrders() {
-  const cached = getCached<any[]>('today_orders')
+export async function getTodayOrders(restaurantId?: string) {
+  const cacheKey = `today_orders:${restaurantId || 'all'}`
+  const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
   const today = new Date()
@@ -532,39 +562,42 @@ export async function getTodayOrders() {
     { id: 'ord-1034', total_amount: 9800, status: 'completed', created_at: new Date().toISOString() }
   ]
 
-  const query = supabase
+  let builder = supabase
     .from('orders')
     .select('*')
     .gte('created_at', today.toISOString())
-    .then(({ data, error }) => {
-      if (!error && data && data.length > 0) return data
-      return fallback
-    })
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
 
-  const result = await withTimeout(query, 1200, fallback)
-  setCached('today_orders', result, 15)
+  const query = builder.then(({ data, error }) => {
+    if (!error && data && (data.length > 0 || restaurantId)) return data
+    return restaurantId ? [] : fallback
+  })
+
+  const result = await withTimeout(query, 1200, restaurantId ? [] : fallback)
+  setCached(cacheKey, result, 15)
   return result
 }
 
 // --- Inventory ---
-export async function getCriticalInventory() {
-  const cached = getCached<any[]>('critical_inventory')
+export async function getCriticalInventory(restaurantId?: string) {
+  const cacheKey = `critical_inventory:${restaurantId || 'all'}`
+  const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
-  const fallback = SAMPLE_INVENTORY.filter((item) => item.quantity_available <= item.min_stock)
+  const fallback = restaurantId ? [] : SAMPLE_INVENTORY.filter((item) => item.quantity_available <= item.min_stock)
 
-  const query = supabase
-    .from('inventory_items')
-    .select('*')
-    .then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
-        return data.filter((item: any) => item.quantity_available <= item.min_stock)
-      }
-      return fallback
-    })
+  let builder = supabase.from('inventory_items').select('*')
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const query = builder.then(({ data, error }) => {
+    if (!error && data && (data.length > 0 || restaurantId)) {
+      return data.filter((item: any) => item.quantity_available <= item.min_stock)
+    }
+    return fallback
+  })
 
   const result = await withTimeout(query, 1200, fallback)
-  setCached('critical_inventory', result, 20)
+  setCached(cacheKey, result, 20)
   return result
 }
 
@@ -591,20 +624,24 @@ export async function refillInventory(itemId: string, amount: number) {
   invalidateCache('all_inventory')
 }
 
-export async function getAllInventory() {
-  const cached = getCached<any[]>('all_inventory')
+export async function getAllInventory(restaurantId?: string) {
+  const cacheKey = `all_inventory:${restaurantId || 'all'}`
+  const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
-  const query = supabase
-    .from('inventory_items')
-    .select('*')
+  const fallback = restaurantId ? [] : SAMPLE_INVENTORY
+
+  let builder = supabase.from('inventory_items').select('*')
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const query = builder
     .order('name', { ascending: true })
     .then(({ data, error }) => {
-      if (!error && data && data.length > 0) return data
-      return SAMPLE_INVENTORY
+      if (!error && data && (data.length > 0 || restaurantId)) return data
+      return fallback
     })
 
-  const result = await withTimeout(query, 1200, SAMPLE_INVENTORY)
-  setCached('all_inventory', result, 30)
+  const result = await withTimeout(query, 1200, fallback)
+  setCached(cacheKey, result, 30)
   return result
 }

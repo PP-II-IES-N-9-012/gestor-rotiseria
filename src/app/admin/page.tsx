@@ -9,8 +9,11 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getTodayOrders, getCriticalInventory, refillInventory } from '@/lib/api'
+import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function AdminDashboard() {
+  const restaurant = useAdminRestaurant()
+  const restaurantId = restaurant?.id
   const [orders, setOrders] = useState<any[]>([])
   const [inventory, setInventory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -18,8 +21,8 @@ export default function AdminDashboard() {
   const loadData = async () => {
     try {
       const [ordersData, inventoryData] = await Promise.all([
-        getTodayOrders(),
-        getCriticalInventory()
+        getTodayOrders(restaurantId),
+        getCriticalInventory(restaurantId)
       ])
       setOrders(ordersData || [])
       setInventory(inventoryData || [])
@@ -32,7 +35,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId])
 
   const handleRefill = async (itemId: string) => {
     try {

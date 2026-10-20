@@ -6,9 +6,11 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createOrder } from '@/lib/api'
+import { useStoreTenant } from '@/lib/useStoreTenant'
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, total, clearCart } = useCartStore()
+  const { tenant, restaurant, href, storePath } = useStoreTenant()
   const [mounted, setMounted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderDone, setOrderDone] = useState<any>(null)
@@ -52,13 +54,13 @@ export default function CartPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              href={`/seguimiento`}
+              href={href('/seguimiento')}
               className="btn-amber text-center py-3 px-6"
             >
               Rastrear mi pedido
             </Link>
             <Link 
-              href="/tienda"
+              href={storePath}
               className="btn-secondary text-center py-3 px-6"
             >
               Volver a la carta
@@ -79,7 +81,7 @@ export default function CartPage() {
         <p className="text-[#a88a70] mb-8 max-w-md mx-auto">
           Aún no has agregado ninguna de nuestras comidas caseras. Date una vuelta por el menú para ver qué sale del horno hoy.
         </p>
-        <Link href="/tienda" className="btn-primary inline-flex items-center gap-2">
+        <Link href={storePath} className="btn-primary inline-flex items-center gap-2">
           <span>Ver la Carta & Menú</span>
           <ArrowRight className="w-4 h-4" />
         </Link>
@@ -89,6 +91,10 @@ export default function CartPage() {
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (tenant && !restaurant) {
+      alert("No pudimos identificar el local de esta tienda. Recargá la página e intentá nuevamente.")
+      return
+    }
     setIsSubmitting(true)
     
     try {
@@ -104,7 +110,7 @@ export default function CartPage() {
         product_id: item.id,
         quantity: item.quantity,
         unit_price: item.price
-      })))
+      })), restaurant?.id)
 
       clearCart()
       setOrderDone(newOrder)

@@ -1,32 +1,65 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Save, Store, Globe, MapPin, Phone, Loader2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { invalidateCache } from '@/lib/api'
+import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function SettingsPage() {
+  const restaurant = useAdminRestaurant()
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
-  // This would typically come from the database (restaurants table)
+  // Datos reales del local (tabla restaurants) resueltos por subdominio / perfil
   const [formData, setFormData] = useState({
-    name: 'Rotisería Central',
-    subdomain: 'central',
-    address: 'Av. Corrientes 1234, Buenos Aires',
-    phone: '+54 11 1234-5678',
-    description: 'Comida casera de calidad.'
+    name: '',
+    subdomain: '',
+    address: '',
+    phone: '',
+    description: ''
   })
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!restaurant) return
+    setFormData({
+      name: restaurant.name || '',
+      subdomain: restaurant.subdomain || '',
+      address: restaurant.address || '',
+      phone: restaurant.phone || '',
+      description: restaurant.description || ''
+    })
+  }, [restaurant])
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!restaurant) {
+      setError('No hay un local asociado a esta sesión.')
+      return
+    }
     setLoading(true)
     setSaved(false)
-    
-    // Simulate API call to save to 'restaurants' and 'profiles'
-    setTimeout(() => {
-      setLoading(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    }, 1000)
+    setError('')
+
+    const { error: updateError } = await supabase
+      .from('restaurants')
+      .update({
+        name: formData.name,
+        address: formData.address,
+        phone: formData.phone,
+        description: formData.description
+      })
+      .eq('id', restaurant.id)
+
+    setLoading(false)
+    if (updateError) {
+      setError('No se pudieron guardar los cambios.')
+      return
+    }
+    invalidateCache('restaurant')
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
   }
 
   return (
@@ -63,9 +96,9 @@ export default function SettingsPage() {
                 <input 
                   type="text" 
                   value={formData.subdomain}
-                  onChange={e => setFormData({...formData, subdomain: e.target.value})}
-                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-4 pr-32 py-3 focus:outline-none focus:border-red-500 transition-colors"
-                  required
+                  readOnly
+                  title="El subdominio no se puede cambiar desde aquí"
+                  className="w-full bg-slate-800/30 border border-slate-700 rounded-xl pl-4 pr-32 py-3 text-gray-400 cursor-not-allowed focus:outline-none"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-sm">
                   .tu-dominio.com
@@ -113,6 +146,9 @@ export default function SettingsPage() {
           </div>
 
           <div className="pt-6 border-t border-white/5 flex justify-end items-center gap-4">
+            {error && (
+              <span className="text-red-400 text-sm">{error}</span>
+            )}
             {saved && (
               <span className="text-emerald-400 text-sm animate-in fade-in">
                 ¡Cambios guardados exitosamente!

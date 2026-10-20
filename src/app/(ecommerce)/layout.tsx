@@ -4,9 +4,11 @@ import Link from 'next/link'
 import { ShoppingCart, Utensils, Flame, Sparkles } from 'lucide-react'
 import { useCartStore } from '@/store/useCartStore'
 import { useState, useEffect } from 'react'
+import { useStoreTenant } from '@/lib/useStoreTenant'
 
 export default function EcommerceLayout({ children }: { children: React.ReactNode }) {
   const { items } = useCartStore()
+  const { restaurant, href, storePath } = useStoreTenant()
   const [mounted, setMounted] = useState(false)
   const cartCount = items.reduce((acc, item) => acc + item.quantity, 0)
 
@@ -30,13 +32,13 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
           <div className="flex justify-between items-center h-20">
             
             {/* Logo / Brand */}
-            <Link href="/tienda" className="flex items-center space-x-3 group">
+            <Link href={storePath} className="flex items-center space-x-3 group">
               <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-2.5 rounded-xl group-hover:rotate-6 transition-all duration-300 shadow-md shadow-orange-950/50 border border-amber-500/20">
                 <Flame className="w-6 h-6 text-[#ffd5a8]" />
               </div>
               <div className="flex flex-col">
                 <span className="font-rustic text-2xl font-bold tracking-tight text-[#fcf9f5]">
-                  La <span className="text-[#e59324]">Rotisería</span>
+                  {restaurant ? restaurant.name : <>La <span className="text-[#e59324]">Rotisería</span></>}
                 </span>
                 <span className="text-[11px] text-[#bda086] -mt-1 flex items-center gap-1 font-medium">
                   <Sparkles className="w-3 h-3 text-[#e59324]" />
@@ -48,14 +50,14 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
             {/* Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
               <Link 
-                href="/tienda" 
+                href={storePath} 
                 className="text-[#ddcfc2] hover:text-[#e59324] transition-colors font-medium text-sm flex items-center gap-1.5"
               >
                 <Utensils className="w-4 h-4 text-[#e59324]" />
                 Carta & Menú
               </Link>
               <Link 
-                href="/seguimiento" 
+                href={href('/seguimiento')} 
                 className="text-[#ddcfc2] hover:text-[#e59324] transition-colors font-medium text-sm"
               >
                 Seguimiento en Vivo
@@ -71,7 +73,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
             {/* Actions: Cart */}
             <div className="flex items-center space-x-4">
               <Link 
-                href="/carrito" 
+                href={href('/carrito')} 
                 className="relative flex items-center gap-2 bg-[#2d221b] hover:bg-[#3b2d24] text-[#fcf9f5] px-4 py-2 rounded-xl border border-[#e59324]/30 transition-all duration-200 active:scale-95 shadow-md"
               >
                 <ShoppingCart className="w-5 h-5 text-[#e59324]" />

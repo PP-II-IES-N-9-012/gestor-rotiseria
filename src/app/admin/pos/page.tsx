@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, CreditCard, Banknote, Loader2 } from 'lucide-react'
 import { getProducts, createOrder } from '@/lib/api'
+import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function POSPage() {
+  const restaurantId = useAdminRestaurant()?.id
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<{id: string, name: string, price: number, quantity: number}[]>([
@@ -20,7 +22,7 @@ export default function POSPage() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const data = await getProducts()
+        const data = await getProducts(restaurantId)
         setProducts(data || [])
       } catch (error) {
         console.error("Error loading products", error)
@@ -29,7 +31,7 @@ export default function POSPage() {
       }
     }
     loadProducts()
-  }, [])
+  }, [restaurantId])
   
   const addToCart = (product: any) => {
     setCart(prev => {
@@ -57,7 +59,7 @@ export default function POSPage() {
         product_id: item.id,
         quantity: item.quantity,
         unit_price: item.price
-      })))
+      })), restaurantId)
       
       alert('Venta registrada con éxito. Enviada a cocina.')
       setCart([])

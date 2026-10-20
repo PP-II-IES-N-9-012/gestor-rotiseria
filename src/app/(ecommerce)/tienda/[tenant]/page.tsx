@@ -1,4 +1,5 @@
-import { getProducts, getRestaurant } from '@/lib/api'
+import { notFound } from 'next/navigation'
+import { getProducts, getRestaurantStrict } from '@/lib/api'
 import AddToCartButton from '../../components/AddToCartButton'
 import { Flame, Clock, Heart, Award, Sparkles, MapPin, Phone } from 'lucide-react'
 
@@ -10,7 +11,8 @@ export default async function TenantTiendaPage({
   params: Promise<{ tenant: string }> 
 }) {
   const { tenant } = await params
-  const restaurant = await getRestaurant(tenant)
+  const restaurant = await getRestaurantStrict(tenant)
+  if (!restaurant) notFound()
   const products = await getProducts(restaurant.id)
 
   const categories = Array.from(new Set(products.map(p => p.category)))
