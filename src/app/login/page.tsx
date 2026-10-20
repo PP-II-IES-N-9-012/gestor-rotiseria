@@ -72,21 +72,22 @@ export default function LoginPage() {
 
       const own = await getRestaurant(profile.restaurant_id)
       const hostTenant = getClientTenant()
+      const targetSubdomain = own.subdomain.toLowerCase()
 
-      // En el subdominio de otro local no se puede entrar
-      if (hostTenant && own.subdomain.toLowerCase() !== hostTenant) {
-        await supabase.auth.signOut()
-        throw new Error('Esta cuenta no pertenece a este local.')
+      // Si ya está en el subdominio correcto de su restaurante
+      if (hostTenant && hostTenant === targetSubdomain) {
+        router.push('/admin')
+        return
       }
 
-      // Login en el dominio general: llevamos al admin al subdominio de SU local
-      if (!hostTenant && matchRootDomain(window.location.host) && data.session) {
-        const target = buildTenantUrl(own.subdomain, '/login')
+      // Si se loguea desde el dominio general o desde otro subdominio,
+      // lo enviamos DIRECTAMENTE a /admin de su restaurante transfiriendo los tokens
+      if (matchRootDomain(window.location.host) && data.session) {
+        const target = buildTenantUrl(targetSubdomain, '/admin')
         const hash = new URLSearchParams({
           sat: data.session.access_token,
           srt: data.session.refresh_token
         })
-        await supabase.auth.signOut({ scope: 'local' })
         window.location.href = `${target}#${hash.toString()}`
         return
       }
@@ -189,8 +190,14 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                localStorage.setItem('demo_auth', 'true')
-                router.push('/admin')
+                const hostTenant = getClientTenant()
+                const targetSubdomain = hostTenant || 'don-carlos'
+                if (!hostTenant && matchRootDomain(window.location.host)) {
+                  window.location.href = buildTenantUrl(targetSubdomain, '/admin?demo=true')
+                } else {
+                  localStorage.setItem('demo_auth', 'true')
+                  router.push('/admin?demo=true')
+                }
               }}
               className="w-full bg-[#2a1d15] hover:bg-[#38261b] text-[#e59324] border border-[#e59324]/30 py-2.5 text-xs font-semibold rounded-xl flex justify-center items-center gap-1.5 transition-all"
             >

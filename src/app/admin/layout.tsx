@@ -41,14 +41,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const init = async () => {
       try {
+        // Traspaso de sesión cross-origin (desde el login en dominio general u otro subdominio)
+        if (typeof window !== 'undefined' && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+          const at = hashParams.get('sat') || hashParams.get('access_token')
+          const rt = hashParams.get('srt') || hashParams.get('refresh_token')
+          if (at && rt) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search)
+            try {
+              await supabase.auth.setSession({ access_token: at, refresh_token: rt })
+            } catch (e) {
+              console.warn('Error syncing transferred auth session:', e)
+            }
+          }
+        }
+
+        const isDemo =
+          localStorage.getItem('demo_auth') === 'true' ||
+          new URLSearchParams(window.location.search).get('demo') === 'true'
+
+        if (new URLSearchParams(window.location.search).get('demo') === 'true') {
+          localStorage.setItem('demo_auth', 'true')
+        }
+
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null } }), 3000)
+          setTimeout(() => resolve({ data: { session: null } }), 3500)
         )
         const { data: { session } } = await Promise.race([supabase.auth.getSession(), timeoutPromise])
         if (cancelled) return
 
         if (session) {
-          // El local del admin sale de su perfil, no de una URL "general"
+          // El local del admin sale de su perfil en Supabase
           const { data: profile } = await supabase
             .from('profiles')
             .select('restaurant_id')
@@ -60,12 +83,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const own = await getRestaurant(profile.restaurant_id)
             if (cancelled) return
 
-            if (hostTenant && own.subdomain.toLowerCase() !== hostTenant) {
-              // Está en el subdominio de otro local: lo llevamos al suyo
-              await supabase.auth.signOut()
-              window.location.href = buildTenantUrl(own.subdomain, '/login?error=otro-local')
+            // Si está en el dominio base o en el subdominio de otro local, llevarlo al suyo propio
+            if (!hostTenant || own.subdomain.toLowerCase() !== hostTenant) {
+              const target = buildTenantUrl(own.subdomain, '/admin')
+              const transferHash = new URLSearchParams({
+                sat: session.access_token,
+                srt: session.refresh_token
+              })
+              window.location.href = `${target}#${transferHash.toString()}`
               return
             }
+
             setRestaurant(own)
             setLoading(false)
             return
@@ -73,7 +101,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
 
         if (isDemo) {
-          // Demo: el local sale del subdominio (si hay), no de datos genéricos
           const demoRestaurant = hostTenant ? await getRestaurantStrict(hostTenant) : null
           if (cancelled) return
           setRestaurant(demoRestaurant)
