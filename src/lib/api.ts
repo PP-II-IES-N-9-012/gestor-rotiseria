@@ -138,75 +138,170 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
   }
 ]
 
+// ============================================================================
+// PERFORMANCE OPTIMIZATION: In-Memory TTL Cache & Fast Timeout Helper
+// ============================================================================
+
+const memoryCache = new Map<string, { data: any; expires: number }>()
+
+function getCached<T>(key: string): T | null {
+  const entry = memoryCache.get(key)
+  if (!entry) return null
+  if (Date.now() > entry.expires) {
+    memoryCache.delete(key)
+    return null
+  }
+  return entry.data as T
+}
+
+function setCached(key: string, data: any, ttlSeconds = 45) {
+  memoryCache.set(key, { data, expires: Date.now() + ttlSeconds * 1000 })
+}
+
+export function invalidateCache(keyPrefix?: string) {
+  if (!keyPrefix) {
+    memoryCache.clear()
+    return
+  }
+  for (const key of Array.from(memoryCache.keys())) {
+    if (key.startsWith(keyPrefix)) {
+      memoryCache.delete(key)
+    }
+  }
+}
+
+/**
+ * Executes a promise with an aggressive timeout.
+ * If Supabase is slow, paused, or unreachable, it falls back instantly to local sample data.
+ */
+async function withTimeout<T>(promise: PromiseLike<T> | Promise<T>, timeoutMs: number, fallbackValue: T): Promise<T> {
+  let timer: NodeJS.Timeout
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(fallbackValue)
+    }, timeoutMs)
+  })
+
+  const wrappedPromise = Promise.resolve(promise)
+    .then((result) => {
+      clearTimeout(timer)
+      return result
+    })
+    .catch((err) => {
+      clearTimeout(timer)
+      console.warn('API query error, using fallback:', err?.message || err)
+      return fallbackValue
+    })
+
+  return Promise.race([wrappedPromise, timeoutPromise])
+}
+
 // Helper para obtener el Tenant ID (Restaurante) para la parte PÚBLICA (E-commerce).
 export async function getPublicTenantId() {
-  const { data, error } = await supabase
+  const cached = getCached<string>('public_tenant_id')
+  if (cached) return cached
+
+  const query = supabase
     .from('restaurants')
     .select('id')
     .limit(1)
     .single()
-    
-  if (error || !data) {
-    return FALLBACK_RESTAURANT.id
-  }
-  return data.id
+    .then(({ data, error }) => {
+      if (error || !data) return FALLBACK_RESTAURANT.id
+      return data.id
+    })
+
+  const tenantId = await withTimeout(query, 1200, FALLBACK_RESTAURANT.id)
+  setCached('public_tenant_id', tenantId, 120)
+  return tenantId
 }
 
 // Obtener restaurante por subdominio o ID
 export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantInfo> {
+  const cacheKey = `restaurant:${idOrSubdomain || 'default'}`
+  const cached = getCached<RestaurantInfo>(cacheKey)
+  if (cached) return cached
+
+  // Quick match in sample restaurants
+  const sampleMatch = SAMPLE_RESTAURANTS.find(
+    r => (idOrSubdomain && r.subdomain.toLowerCase() === idOrSubdomain.toLowerCase()) || r.id === idOrSubdomain
+  )
+
   if (!idOrSubdomain) {
-    const { data } = await supabase.from('restaurants').select('*').limit(1).maybeSingle()
-    if (data) return data
-    return FALLBACK_RESTAURANT
+    const query = supabase
+      .from('restaurants')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => data || FALLBACK_RESTAURANT)
+
+    const result = await withTimeout(query, 1200, FALLBACK_RESTAURANT)
+    setCached(cacheKey, result, 60)
+    return result
   }
 
-  // Si parece un UUID
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrSubdomain)
   
-  if (isUuid) {
-    const { data } = await supabase.from('restaurants').select('*').eq('id', idOrSubdomain).maybeSingle()
+  const query = (async () => {
+    if (isUuid) {
+      const { data } = await supabase.from('restaurants').select('*').eq('id', idOrSubdomain).maybeSingle()
+      if (data) return data
+    }
+
+    const { data } = await supabase
+      .from('restaurants')
+      .select('*')
+      .ilike('subdomain', idOrSubdomain)
+      .maybeSingle()
+
     if (data) return data
-  }
+    if (sampleMatch) return sampleMatch
 
-  // Buscar por subdominio (case insensitive)
-  const { data } = await supabase
-    .from('restaurants')
-    .select('*')
-    .ilike('subdomain', idOrSubdomain)
-    .maybeSingle()
+    return {
+      ...FALLBACK_RESTAURANT,
+      name: `Rotisería ${idOrSubdomain.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+      subdomain: idOrSubdomain
+    }
+  })()
 
-  if (data) return data
-
-  // Buscar en lista de muestra si no está en DB
-  const sample = SAMPLE_RESTAURANTS.find(
-    r => r.subdomain.toLowerCase() === idOrSubdomain.toLowerCase() || r.id === idOrSubdomain
-  )
-  if (sample) return sample
-
-  return {
+  const fallback = sampleMatch || {
     ...FALLBACK_RESTAURANT,
     name: `Rotisería ${idOrSubdomain.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
     subdomain: idOrSubdomain
   }
+
+  const result = await withTimeout(query, 1200, fallback)
+  setCached(cacheKey, result, 60)
+  return result
 }
 
 export async function getAllRestaurants(): Promise<RestaurantInfo[]> {
-  try {
-    const { data, error } = await supabase.from('restaurants').select('*')
-    if (!error && data && data.length > 0) {
-      return data
-    }
-  } catch (err) {
-    console.warn("Could not fetch restaurants list from supabase", err)
-  }
-  return SAMPLE_RESTAURANTS
+  const cached = getCached<RestaurantInfo[]>('all_restaurants')
+  if (cached) return cached
+
+  const query = supabase.from('restaurants').select('*').then(({ data, error }) => {
+    if (!error && data && data.length > 0) return data
+    return SAMPLE_RESTAURANTS
+  })
+
+  const result = await withTimeout(query, 1200, SAMPLE_RESTAURANTS)
+  setCached('all_restaurants', result, 60)
+  return result
 }
 
 // --- Products (Public) ---
 export async function getProducts(restaurantIdOrSubdomain?: string) {
-  try {
-    const rest = await getRestaurant(restaurantIdOrSubdomain)
-    const id = rest.id
+  const cacheKey = `products:${restaurantIdOrSubdomain || 'default'}`
+  const cached = getCached<any[]>(cacheKey)
+  if (cached) return cached
+
+  const query = (async () => {
+    let id = restaurantIdOrSubdomain
+    const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+    if (!isUuid) {
+      const rest = await getRestaurant(restaurantIdOrSubdomain)
+      id = rest.id
+    }
 
     const { data, error } = await supabase
       .from('products')
@@ -217,85 +312,82 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
     if (!error && data && data.length > 0) {
       return data
     }
-  } catch (err) {
-    console.warn("Using artisanal fallback menu products:", err)
-  }
+    return ARTISANAL_FALLBACK_PRODUCTS
+  })()
 
-  // Retornamos el catálogo artesanal rico para que la rotisería se vea deliciosa y completa
-  return ARTISANAL_FALLBACK_PRODUCTS
+  const result = await withTimeout(query, 1200, ARTISANAL_FALLBACK_PRODUCTS)
+  setCached(cacheKey, result, 60)
+  return result
 }
-
 
 // --- Orders (Public & Admin) ---
 export async function createOrder(
   order: {
-    delivery_type: string,
-    total_amount: number,
-    guest_name?: string,
-    guest_phone?: string,
-    guest_address?: string,
-    payment_method?: string,
-    notes?: string,
+    delivery_type: string
+    total_amount: number
+    guest_name?: string
+    guest_phone?: string
+    guest_address?: string
+    payment_method?: string
+    notes?: string
     status?: string
   },
-  items: { product_id: string, quantity: number, unit_price: number }[],
+  items: { product_id: string; quantity: number; unit_price: number }[],
   restaurantId?: string
 ) {
-  const id = restaurantId || await getPublicTenantId()
+  const id = restaurantId || (await getPublicTenantId())
 
   const { data: newOrder, error: orderError } = await supabase
     .from('orders')
     .insert({
       ...order,
-      restaurant_id: id,
+      restaurant_id: id
     })
     .select()
     .single()
 
   if (orderError) throw orderError
 
-  const orderItems = items.map(item => ({
+  const orderItems = items.map((item) => ({
     ...item,
-    order_id: newOrder.id,
+    order_id: newOrder.id
   }))
 
-  const { error: itemsError } = await supabase
-    .from('order_items')
-    .insert(orderItems)
+  const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
 
   if (itemsError) throw itemsError
+
+  invalidateCache('orders')
+  invalidateCache('today_orders')
 
   return newOrder
 }
 
 // Para seguimiento público
 export async function getOrderById(orderId: string, restaurantId?: string) {
-  const id = restaurantId || await getPublicTenantId()
+  const id = restaurantId || (await getPublicTenantId())
   
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          quantity,
-          product_id,
-          products (
-            name
-          )
+  const query = supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (
+        quantity,
+        product_id,
+        products (
+          name
         )
-      `)
-      .eq('id', orderId)
-      .eq('restaurant_id', id)
-      .maybeSingle()
+      )
+    `)
+    .eq('id', orderId)
+    .eq('restaurant_id', id)
+    .maybeSingle()
+    .then(({ data, error }) => {
+      if (!error && data) return data
+      return null
+    })
 
-    if (!error && data) return data
-  } catch (err) {
-    console.warn("Using sample order for tracking display:", err)
-  }
-
-  // Fallback de muestra para visualización y documentación
-  return {
+  const fallback = {
     id: orderId || 'b326adf8-3a44-4736-bf3e-06e1e6bba946',
     restaurant_id: id,
     guest_name: 'Carlos Mendoza',
@@ -312,8 +404,10 @@ export async function getOrderById(orderId: string, restaurantId?: string) {
       { quantity: 1, unit_price: 4900, products: { name: 'Porción de Papas Fritas Rústicas a la Provenzal' } }
     ]
   }
-}
 
+  const result = await withTimeout(query, 1200, fallback)
+  return result || fallback
+}
 
 // ============================================================================
 // ADMIN FUNCTIONS & FALLBACKS
@@ -377,28 +471,33 @@ export const SAMPLE_INVENTORY = [
 ]
 
 export async function getOrdersByStatus(statuses: string[]) {
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          quantity,
-          product_id,
-          products (
-            name
-          )
+  const cacheKey = `orders:${statuses.slice().sort().join(',')}`
+  const cached = getCached<any[]>(cacheKey)
+  if (cached) return cached
+
+  const query = supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (
+        quantity,
+        product_id,
+        products (
+          name
         )
-      `)
-      .in('status', statuses)
-      .order('created_at', { ascending: true })
+      )
+    `)
+    .in('status', statuses)
+    .order('created_at', { ascending: true })
+    .then(({ data, error }) => {
+      if (!error && data && data.length > 0) return data
+      return SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))
+    })
 
-    if (!error && data && data.length > 0) return data
-  } catch (err) {
-    console.warn("Using sample kitchen orders", err)
-  }
-
-  return SAMPLE_ADMIN_ORDERS.filter(o => statuses.includes(o.status))
+  const fallback = SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))
+  const result = await withTimeout(query, 1200, fallback)
+  setCached(cacheKey, result, 10)
+  return result
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
@@ -410,26 +509,20 @@ export async function updateOrderStatus(orderId: string, status: string) {
 
     if (error) throw error
   } catch (err) {
-    console.warn("Mock updating order status", orderId, status)
+    console.warn('Mock updating order status', orderId, status)
   }
+  invalidateCache('orders')
+  invalidateCache('today_orders')
 }
 
 export async function getTodayOrders() {
-  try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .gte('created_at', today.toISOString())
+  const cached = getCached<any[]>('today_orders')
+  if (cached) return cached
 
-    if (!error && data && data.length > 0) return data
-  } catch (err) {
-    console.warn("Using sample today orders", err)
-  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-  return [
+  const fallback = [
     ...SAMPLE_ADMIN_ORDERS,
     { id: 'ord-1039', total_amount: 22000, status: 'completed', created_at: new Date().toISOString() },
     { id: 'ord-1038', total_amount: 14500, status: 'completed', created_at: new Date().toISOString() },
@@ -438,23 +531,41 @@ export async function getTodayOrders() {
     { id: 'ord-1035', total_amount: 11500, status: 'completed', created_at: new Date().toISOString() },
     { id: 'ord-1034', total_amount: 9800, status: 'completed', created_at: new Date().toISOString() }
   ]
+
+  const query = supabase
+    .from('orders')
+    .select('*')
+    .gte('created_at', today.toISOString())
+    .then(({ data, error }) => {
+      if (!error && data && data.length > 0) return data
+      return fallback
+    })
+
+  const result = await withTimeout(query, 1200, fallback)
+  setCached('today_orders', result, 15)
+  return result
 }
 
 // --- Inventory ---
 export async function getCriticalInventory() {
-  try {
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .select('*')
-      
-    if (!error && data && data.length > 0) {
-      return data.filter((item: any) => item.quantity_available <= item.min_stock)
-    }
-  } catch (err) {
-    console.warn("Using sample critical inventory", err)
-  }
-  
-  return SAMPLE_INVENTORY.filter(item => item.quantity_available <= item.min_stock)
+  const cached = getCached<any[]>('critical_inventory')
+  if (cached) return cached
+
+  const fallback = SAMPLE_INVENTORY.filter((item) => item.quantity_available <= item.min_stock)
+
+  const query = supabase
+    .from('inventory_items')
+    .select('*')
+    .then(({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        return data.filter((item: any) => item.quantity_available <= item.min_stock)
+      }
+      return fallback
+    })
+
+  const result = await withTimeout(query, 1200, fallback)
+  setCached('critical_inventory', result, 20)
+  return result
 }
 
 export async function refillInventory(itemId: string, amount: number) {
@@ -464,7 +575,7 @@ export async function refillInventory(itemId: string, amount: number) {
       .select('quantity_available')
       .eq('id', itemId)
       .single()
-      
+
     if (fetchError) throw fetchError
 
     const { error } = await supabase
@@ -474,22 +585,26 @@ export async function refillInventory(itemId: string, amount: number) {
 
     if (error) throw error
   } catch (err) {
-    console.warn("Mock refill inventory", itemId, amount)
+    console.warn('Mock refill inventory', itemId, amount)
   }
+  invalidateCache('critical_inventory')
+  invalidateCache('all_inventory')
 }
 
 export async function getAllInventory() {
-  try {
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .order('name', { ascending: true })
-      
-    if (!error && data && data.length > 0) return data
-  } catch (err) {
-    console.warn("Using sample inventory list", err)
-  }
+  const cached = getCached<any[]>('all_inventory')
+  if (cached) return cached
 
-  return SAMPLE_INVENTORY
+  const query = supabase
+    .from('inventory_items')
+    .select('*')
+    .order('name', { ascending: true })
+    .then(({ data, error }) => {
+      if (!error && data && data.length > 0) return data
+      return SAMPLE_INVENTORY
+    })
+
+  const result = await withTimeout(query, 1200, SAMPLE_INVENTORY)
+  setCached('all_inventory', result, 30)
+  return result
 }
-

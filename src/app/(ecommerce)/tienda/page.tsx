@@ -2,7 +2,7 @@ import { getProducts, getRestaurant } from '@/lib/api'
 import AddToCartButton from '../components/AddToCartButton'
 import { Flame, Clock, Heart, Award, Sparkles, MapPin, Phone } from 'lucide-react'
 
-export const revalidate = 0
+export const revalidate = 60
 
 export default async function TiendaPage() {
   const restaurant = await getRestaurant()

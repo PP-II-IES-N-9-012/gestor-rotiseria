@@ -29,29 +29,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const isDemo = typeof window !== 'undefined' && (
-        localStorage.getItem('demo_auth') === 'true' ||
-        new URLSearchParams(window.location.search).get('demo') === 'true' ||
-        process.env.NODE_ENV === 'development'
-      )
+    const isDemo = typeof window !== 'undefined' && (
+      localStorage.getItem('demo_auth') === 'true' ||
+      new URLSearchParams(window.location.search).get('demo') === 'true' ||
+      process.env.NODE_ENV === 'development'
+    )
 
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session && !isDemo) {
+    if (isDemo) {
+      setLoading(false)
+      return
+    }
+
+    const checkAuth = async () => {
+      try {
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 1500)
+        )
+        const sessionPromise = supabase.auth.getSession()
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise])
+
+        if (!session) {
+          router.push('/login')
+        } else {
+          setLoading(false)
+        }
+      } catch {
         router.push('/login')
-      } else {
-        setLoading(false)
       }
     }
 
     checkAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const isDemo = typeof window !== 'undefined' && (
-        localStorage.getItem('demo_auth') === 'true' ||
-        new URLSearchParams(window.location.search).get('demo') === 'true' ||
-        process.env.NODE_ENV === 'development'
-      )
       if (!session && !isDemo) {
         router.push('/login')
       }
