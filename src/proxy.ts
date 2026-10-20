@@ -15,6 +15,15 @@ const RESERVED_SUBDOMAINS = new Set([
   'staging'
 ])
 
+// Dominios raíz propios cuyos subdominios representan comercios.
+// Configurable con NEXT_PUBLIC_ROOT_DOMAINS (separados por coma).
+// Hosts como "*.vercel.app" NO están acá: el subdominio ahí es el nombre del
+// proyecto, no un comercio. En esos casos se usa /tienda/<slug> o ?negocio=<slug>.
+const ROOT_DOMAINS = (process.env.NEXT_PUBLIC_ROOT_DOMAINS || 'comandapp.com,localhost')
+  .split(',')
+  .map(d => d.trim().toLowerCase())
+  .filter(Boolean)
+
 export default function proxy(request: NextRequest) {
   const url = request.nextUrl
   const hostname = request.headers.get('host') || ''
@@ -22,18 +31,20 @@ export default function proxy(request: NextRequest) {
   // Extraer el host sin puerto (ej: "don-carlos.localhost:3000" -> "don-carlos.localhost")
   const hostWithoutPort = hostname.split(':')[0].toLowerCase()
 
-  // Detectar si hay un subdominio
-  // Ejemplos: 
-  // "don-carlos.localhost" -> parts: ["don-carlos", "localhost"]
-  // "don-carlos.comandapp.com" -> parts: ["don-carlos", "comandapp", "com"]
-  // "localhost" -> parts: ["localhost"]
-  const hostParts = hostWithoutPort.split('.')
+  // Detectar subdominio solo si el host termina en alguno de los dominios raíz
+  // "don-carlos.comandapp.com" -> "don-carlos"
+  // "don-carlos.localhost" -> "don-carlos"
+  // "comandapp-weld.vercel.app" -> null (landing)
   let tenantSubdomain: string | null = null
 
-  if (hostParts.length > 1) {
-    const candidate = hostParts[0]
-    if (!RESERVED_SUBDOMAINS.has(candidate) && isNaN(Number(candidate))) {
-      tenantSubdomain = candidate
+  for (const root of ROOT_DOMAINS) {
+    if (hostWithoutPort.endsWith(`.${root}`)) {
+      const sub = hostWithoutPort.slice(0, -(root.length + 1))
+      // Solo un nivel de subdominio, no reservado
+      if (sub && !sub.includes('.') && !RESERVED_SUBDOMAINS.has(sub) && isNaN(Number(sub))) {
+        tenantSubdomain = sub
+      }
+      break
     }
   }
 
