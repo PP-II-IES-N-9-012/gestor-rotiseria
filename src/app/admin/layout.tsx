@@ -17,15 +17,29 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
-import { AdminRestaurantContext, AdminSetRestaurantContext } from '@/lib/AdminContext'
+import { 
+  AdminRestaurantContext, 
+  AdminSetRestaurantContext,
+  AdminUserRoleContext,
+  AdminUserProfileContext,
+  type UserRole,
+  type AdminUserProfile
+} from '@/lib/AdminContext'
 import { buildTenantUrl, getClientTenant, tenantPath } from '@/lib/tenant'
 
-const navigation = [
-  { name: 'Gerencia (KPIs)', href: '/admin', icon: LayoutDashboard },
-  { name: 'Punto de Venta', href: '/admin/pos', icon: Calculator },
-  { name: 'Cocina en Vivo', href: '/admin/cocina', icon: ChefHat },
-  { name: 'Catálogo & Recetas', href: '/admin/productos', icon: UtensilsCrossed },
-  { name: 'Inventario', href: '/admin/inventario', icon: PackageSearch },
+interface NavItem {
+  name: string
+  href: string
+  icon: any
+  roles: UserRole[]
+}
+
+const ALL_NAVIGATION: NavItem[] = [
+  { name: 'Gerencia (KPIs)', href: '/admin', icon: LayoutDashboard, roles: ['admin'] },
+  { name: 'Punto de Venta', href: '/admin/pos', icon: Calculator, roles: ['admin', 'seller'] },
+  { name: 'Cocina en Vivo', href: '/admin/cocina', icon: ChefHat, roles: ['admin', 'seller', 'cook'] },
+  { name: 'Catálogo & Recetas', href: '/admin/productos', icon: UtensilsCrossed, roles: ['admin'] },
+  { name: 'Inventario', href: '/admin/inventario', icon: PackageSearch, roles: ['admin'] },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +47,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [restaurant, setRestaurant] = useState<RestaurantInfo | null>(null)
+  const [userRole, setUserRole] = useState<UserRole>('admin')
+  const [userProfile, setUserProfile] = useState<AdminUserProfile | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -73,21 +89,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (cancelled) return
 
         if (session) {
-          // El local del admin sale de su perfil en Supabase
+          // El local y rol del usuario sale de su perfil en Supabase
           const { data: profile } = await supabase
             .from('profiles')
-            .select('restaurant_id')
+            .select('id, restaurant_id, role, full_name')
             .eq('id', session.user.id)
             .maybeSingle()
           if (cancelled) return
 
           if (profile?.restaurant_id) {
+            const role: UserRole = (profile.role as UserRole) || 'admin'
+            setUserRole(role)
+            setUserProfile({
+              id: profile.id || session.user.id,
+              restaurant_id: profile.restaurant_id,
+              role,
+              full_name: profile.full_name
+            })
+
+            // Si es un cliente común, no debe entrar al panel administrativo
+            if (role === 'customer') {
+              router.push('/tienda')
+              return
+            }
+
             const own = await getRestaurant(profile.restaurant_id)
             if (cancelled) return
 
+            // Redirección inicial según rol si entra a la raíz /admin
+            const defaultTarget = role === 'cook' ? '/admin/cocina' : role === 'seller' ? '/admin/pos' : '/admin'
+
             // Si está en el dominio base o en el subdominio de otro local, llevarlo al suyo propio
             if (!hostTenant || own.subdomain.toLowerCase() !== hostTenant) {
-              const target = buildTenantUrl(own.subdomain, '/admin')
+              const target = buildTenantUrl(own.subdomain, defaultTarget)
               const transferHash = new URLSearchParams({
                 sat: session.access_token,
                 srt: session.refresh_token
@@ -106,6 +140,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const demoRestaurant = hostTenant ? await getRestaurantStrict(hostTenant) : null
           if (cancelled) return
           setRestaurant(demoRestaurant)
+          setUserRole('admin')
           setLoading(false)
           return
         }
@@ -130,6 +165,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [router])
 
+  // Route Guard: Bloqueo de rutas en tiempo real según rol
+  useEffect(() => {
+    if (loading) return
+
+    if (userRole === 'cook') {
+      if (pathname !== '/admin/cocina') {
+        router.replace('/admin/cocina')
+      }
+    } else if (userRole === 'seller') {
+      const sellerAllowed = ['/admin/pos', '/admin/cocina']
+      if (!sellerAllowed.includes(pathname)) {
+        router.replace('/admin/pos')
+      }
+    } else if (userRole === 'customer') {
+      router.replace('/tienda')
+    }
+  }, [pathname, userRole, loading, router])
+
   const handleLogout = async () => {
     localStorage.removeItem('demo_auth')
     await supabase.auth.signOut()
@@ -140,8 +193,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[#151210] items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-[#e59324]" />
+      <div className="flex h-screen bg-[color:var(--store-subtle-bg)] items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-[color:var(--brand-primary)]" />
       </div>
     )
   }
@@ -153,11 +206,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminRestaurantContext.Provider value={restaurant}>
     <AdminSetRestaurantContext.Provider value={setRestaurant}>
+    <AdminUserRoleContext.Provider value={userRole}>
+    <AdminUserProfileContext.Provider value={userProfile}>
     <div 
       className={`flex h-screen text-[#fcf9f5] overflow-hidden ${themeClass}`}
       style={{
         '--brand-primary': primaryColor,
         '--brand-secondary': secondaryColor,
+        '--color-primary': primaryColor,
+        '--color-secondary': secondaryColor,
+        '--primary': primaryColor,
         backgroundColor: 'var(--store-bg, #151210)'
       } as React.CSSProperties}
     >
@@ -171,7 +229,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div>
           <div 
-            className="h-20 flex items-center px-6 border-b transition-colors"
+            className="h-24 flex items-center px-6 border-b transition-colors"
             style={{ borderColor: `${primaryColor}20` }}
           >
             <Link href="/" className="flex items-center space-x-3 group">
@@ -179,7 +237,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
                   src={restaurant.logo_url} 
-                  alt={restaurant.name}
+                  alt={restaurant.name} 
                   className="w-10 h-10 object-contain rounded-xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-transform"
                   style={{ borderColor: `${primaryColor}40` }}
                 />
@@ -198,18 +256,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span className="font-rustic text-xl font-bold tracking-tight text-white">
                   Comand<span style={{ color: primaryColor }}>App</span>
                 </span>
-                <span className="text-[10px] text-[#bda086] -mt-1 font-semibold truncate max-w-[10rem]">
+                <span className="text-[10px] text-[color:var(--store-text-muted)] -mt-1 font-semibold truncate max-w-[10rem]">
                   {restaurant?.name || 'Panel de Cocina'}
+                </span>
+                <span 
+                  className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5 w-fit border uppercase tracking-wider"
+                  style={{
+                    backgroundColor: userRole === 'admin' ? `${primaryColor}20` : userRole === 'cook' ? 'rgba(234, 88, 12, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                    borderColor: userRole === 'admin' ? `${primaryColor}50` : userRole === 'cook' ? 'rgba(234, 88, 12, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+                    color: userRole === 'admin' ? primaryColor : userRole === 'cook' ? '#fb923c' : '#60a5fa'
+                  }}
+                >
+                  {userRole === 'cook' ? '👨‍🍳 Cocina' : userRole === 'seller' ? '💳 Ventas / POS' : '👑 Administrador'}
                 </span>
               </div>
             </Link>
           </div>
           
           <nav className="p-4 space-y-1.5">
-            <div className="text-[11px] font-semibold text-[#8c6f59] uppercase tracking-wider mb-3 px-3">
+            <div className="text-[11px] font-semibold text-[color:var(--store-text-faint)] uppercase tracking-wider mb-3 px-3">
               Módulos del Local
             </div>
-            {navigation.map((item) => {
+            {ALL_NAVIGATION.filter(item => item.roles.includes(userRole)).map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link
@@ -218,7 +286,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                     isActive
                       ? 'border shadow-sm font-semibold'
-                      : 'text-[#c7af9a] hover:bg-white/5 hover:text-white'
+                      : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
                   }`}
                   style={isActive ? {
                     backgroundColor: `${primaryColor}18`,
@@ -228,7 +296,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 >
                   <item.icon 
                     className="mr-3 h-4 w-4 transition-colors" 
-                    style={{ color: isActive ? primaryColor : '#8c6f59' }} 
+                    style={{ color: isActive ? primaryColor : 'var(--store-text-faint, #8c6f59)' }} 
                   />
                   {item.name}
                 </Link>
@@ -242,8 +310,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link 
                 href={storeHref}
                 target="_blank"
-                className="flex items-center px-3 py-2.5 text-xs text-[#a88a70] hover:bg-white/5 rounded-xl transition-colors gap-2"
-                style={{ color: '#c7af9a' }}
+                className="flex items-center px-3 py-2.5 text-xs text-[color:var(--store-text-muted)] hover:bg-white/5 rounded-xl transition-colors gap-2"
+                style={{ color: 'var(--store-text-soft, #c7af9a)' }}
               >
                 <Store className="w-4 h-4" style={{ color: primaryColor }} />
                 <span>Ver Tienda Pública</span>
@@ -256,28 +324,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           className="p-4 border-t space-y-1"
           style={{ borderColor: `${primaryColor}20` }}
         >
-          <Link 
-            href="/admin/configuracion" 
-            className={`flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl transition-all ${
-              pathname === '/admin/configuracion'
-                ? 'border shadow-sm font-semibold'
-                : 'text-[#c7af9a] hover:bg-white/5 hover:text-white'
-            }`}
-            style={pathname === '/admin/configuracion' ? {
-              backgroundColor: `${primaryColor}18`,
-              color: primaryColor,
-              borderColor: `${primaryColor}50`,
-            } : undefined}
-          >
-            <Settings 
-              className="mr-3 h-4 w-4" 
-              style={{ color: pathname === '/admin/configuracion' ? primaryColor : '#8c6f59' }} 
-            />
-            Personalización & Ajustes
-          </Link>
+          {userRole === 'admin' && (
+            <Link 
+              href="/admin/configuracion" 
+              className={`flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl transition-all ${
+                pathname === '/admin/configuracion'
+                  ? 'border shadow-sm font-semibold'
+                  : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
+              }`}
+              style={pathname === '/admin/configuracion' ? {
+                backgroundColor: `${primaryColor}18`,
+                color: primaryColor,
+                borderColor: `${primaryColor}50`,
+              } : undefined}
+            >
+              <Settings 
+                className="mr-3 h-4 w-4" 
+                style={{ color: pathname === '/admin/configuracion' ? primaryColor : 'var(--store-text-faint, #8c6f59)' }} 
+              />
+              Personalización & Ajustes
+            </Link>
+          )}
           <button 
             onClick={handleLogout} 
-            className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[#8c6f59] hover:bg-red-500/10 hover:text-red-400 transition-all"
+            className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[color:var(--store-text-faint)] hover:bg-red-500/10 hover:text-red-400 transition-all"
           >
             <LogOut className="mr-3 h-4 w-4" />
             Cerrar Sesión
@@ -300,7 +370,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Comand<span style={{ color: primaryColor }}>App</span>
             </span>
           </div>
-          <button onClick={handleLogout} className="text-xs text-[#8c6f59] hover:text-red-400">
+          <button onClick={handleLogout} className="text-xs text-[color:var(--store-text-faint)] hover:text-red-400">
             Salir
           </button>
         </header>
@@ -312,6 +382,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </main>
     </div>
+    </AdminUserProfileContext.Provider>
+    </AdminUserRoleContext.Provider>
     </AdminSetRestaurantContext.Provider>
     </AdminRestaurantContext.Provider>
   )

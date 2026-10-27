@@ -7,6 +7,7 @@ import { useStoreTenant } from '@/lib/useStoreTenant'
 
 export default function TrackingPage() {
   const { restaurant } = useStoreTenant()
+  const primaryColor = restaurant?.primary_color || '#e59324'
   const [orderId, setOrderId] = useState('')
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -74,7 +75,7 @@ export default function TrackingPage() {
           text: 'En Proceso', 
           desc: 'Gestionando tu pedido...',
           icon: Clock, 
-          color: 'text-gray-400', 
+          color: 'text-[color:var(--store-text-muted)]', 
           bg: 'bg-gray-800' 
         }
     }
@@ -86,13 +87,13 @@ export default function TrackingPage() {
       {/* Header */}
       <div className="text-center mb-10">
         <div className="badge-rustic mb-4">
-          <Sparkles className="w-3.5 h-3.5 text-[#e59324]" />
+          <Sparkles className="w-3.5 h-3.5" style={{ color: primaryColor }} />
           <span>Cocina en Vivo</span>
         </div>
         <h1 className="text-3xl md:text-5xl font-bold font-rustic mb-4 text-[#fcf9f5]">
-          Sigue el Estado de tu <span className="text-[#e59324]">Comanda</span>
+          Sigue el Estado de tu <span style={{ color: primaryColor }}>Comanda</span>
         </h1>
-        <p className="text-[#bfa38c] max-w-md mx-auto text-sm leading-relaxed">
+        <p className="text-[color:var(--store-text-muted)] max-w-md mx-auto text-sm leading-relaxed">
           Ingresa el código identificador que recibiste al confirmar tu pedido para ver en qué etapa está en la cocina.
         </p>
       </div>
@@ -104,7 +105,7 @@ export default function TrackingPage() {
           value={orderId}
           onChange={(e) => setOrderId(e.target.value)}
           placeholder="Pega aquí el código del pedido (ej: b326adf8...)" 
-          className="w-full bg-[#1e1713] border border-[#44352a] rounded-2xl pl-6 pr-32 py-4 text-sm md:text-base text-white placeholder-[#7d6553] focus:outline-none focus:border-[#e59324] transition-all shadow-xl"
+          className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-2xl pl-6 pr-32 py-4 text-sm md:text-base text-white placeholder-[color:var(--store-text-faint)] focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-all shadow-xl"
         />
         <button 
           type="submit" 
@@ -130,21 +131,30 @@ export default function TrackingPage() {
 
       {/* Order Status Result */}
       {order && (
-        <div className="bg-[#1f1712] border border-[#4d3a2b] p-8 rounded-3xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div 
+          className="p-8 rounded-3xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500 border"
+          style={{
+            backgroundColor: 'var(--store-card-bg, #1f1712)',
+            borderColor: `color-mix(in srgb, ${primaryColor} 22%, var(--store-border, #4d3a2b))`
+          }}
+        >
           
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b border-[#382b21] gap-4">
+          <div 
+            className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b gap-4"
+            style={{ borderColor: 'var(--store-border, #382b21)' }}
+          >
             <div>
-              <p className="text-[#8c6f59] text-xs font-semibold uppercase tracking-wider mb-1">Número de Comanda</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>Número de Comanda</p>
               <p className="font-rustic font-bold text-2xl text-white">#{order.id.split('-')[0].toUpperCase()}</p>
               {order.guest_name && (
-                <p className="text-xs text-[#bfa38c] mt-0.5">Cliente: {order.guest_name}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--store-text-muted, #bfa38c)' }}>Cliente: {order.guest_name}</p>
               )}
             </div>
             
             <div className="text-left sm:text-right">
-              <p className="text-[#8c6f59] text-xs font-semibold uppercase tracking-wider mb-1">Total del Pedido</p>
-              <p className="text-[#e59324] font-rustic font-bold text-2xl">${Number(order.total_amount).toLocaleString()}</p>
-              <span className="text-[11px] text-[#a88a70]">
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>Total del Pedido</p>
+              <p className="font-rustic font-bold text-2xl" style={{ color: primaryColor }}>${Number(order.total_amount).toLocaleString()}</p>
+              <span className="text-[11px]" style={{ color: 'var(--store-text-muted, #a88a70)' }}>
                 {order.delivery_type === 'delivery' ? '🛵 Envío a domicilio' : '🏪 Retiro en local'}
               </span>
             </div>
@@ -156,7 +166,10 @@ export default function TrackingPage() {
             
             <div className="relative pl-2">
               {/* Timeline line */}
-              <div className="absolute left-7 top-6 bottom-6 w-0.5 bg-[#382b21]"></div>
+              <div 
+                className="absolute left-7 top-6 bottom-6 w-0.5"
+                style={{ backgroundColor: 'var(--store-border, #382b21)' }}
+              />
 
               <div className="space-y-8 relative">
                 {['pending', 'preparing', 'ready', 'completed'].map((stepStatus, idx) => {
@@ -167,28 +180,48 @@ export default function TrackingPage() {
 
                   return (
                     <div key={stepStatus} className={`flex items-start gap-4 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-35'}`}>
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center z-10 transition-all duration-500 shadow-md ${
-                        isCurrent 
-                          ? 'bg-[#e59324] text-[#151210] ring-4 ring-[#e59324]/20 scale-110' 
-                          : isActive 
-                            ? 'bg-[#3b2419] text-[#e59324] border border-[#e59324]/40' 
-                            : 'bg-[#241a14] text-[#7a6452] border border-[#382b21]'
-                      }`}>
+                      <div 
+                        className={`w-11 h-11 rounded-full flex items-center justify-center z-10 transition-all duration-500 shadow-md ${
+                          isCurrent 
+                            ? 'text-[#151210] ring-4 scale-110 font-bold' 
+                            : isActive 
+                              ? 'border' 
+                              : 'border'
+                        }`}
+                        style={isCurrent ? {
+                          backgroundColor: primaryColor,
+                          boxShadow: `0 0 16px ${primaryColor}40`
+                        } : isActive ? {
+                          backgroundColor: `${primaryColor}20`,
+                          color: primaryColor,
+                          borderColor: `${primaryColor}50`
+                        } : {
+                          backgroundColor: 'var(--store-subtle-bg, #241a14)',
+                          borderColor: 'var(--store-border, #382b21)',
+                          color: 'var(--store-text-muted, #7a6452)'
+                        }}
+                      >
                         <statusInfo.icon className="w-5 h-5" />
                       </div>
 
                       <div className="pt-1">
                         <div className="flex items-center gap-2">
-                          <h4 className={`font-rustic font-bold ${isCurrent ? 'text-[#e59324] text-lg' : 'text-white'}`}>
+                          <h4 
+                            className="font-rustic font-bold text-white"
+                            style={isCurrent ? { color: primaryColor, fontSize: '1.125rem' } : undefined}
+                          >
                             {statusInfo.text}
                           </h4>
                           {isCurrent && (
-                            <span className="text-[10px] bg-[#d34e2c] text-white px-2 py-0.5 rounded-full font-semibold">
+                            <span 
+                              className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold"
+                              style={{ backgroundColor: primaryColor }}
+                            >
                               ACTUAL
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#a88a70] mt-1">
+                        <p className="text-xs mt-1" style={{ color: 'var(--store-text-muted, #a88a70)' }}>
                           {statusInfo.desc}
                         </p>
                       </div>
@@ -201,20 +234,29 @@ export default function TrackingPage() {
 
           {/* Items Summary */}
           {order.order_items && order.order_items.length > 0 && (
-            <div className="bg-[#17120e] rounded-2xl p-5 border border-[#382b21]">
+            <div 
+              className="rounded-2xl p-5 border"
+              style={{
+                backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                borderColor: 'var(--store-border, #382b21)'
+              }}
+            >
               <h3 className="font-rustic font-bold text-white text-sm mb-3 flex items-center gap-2">
-                <Utensils className="w-4 h-4 text-[#e59324]" />
+                <Utensils className="w-4 h-4" style={{ color: primaryColor }} />
                 Detalle de los Platos
               </h3>
-              <ul className="space-y-2 text-sm divide-y divide-[#2a1e16]">
+              <ul 
+                className="space-y-2 text-sm divide-y"
+                style={{ borderColor: 'var(--store-border, #2a1e16)' }}
+              >
                 {order.order_items.map((item: any) => (
-                  <li key={item.product_id} className="pt-2 flex justify-between items-center text-[#d4bea9]">
+                  <li key={item.product_id} className="pt-2 flex justify-between items-center text-[color:var(--store-text-soft)]">
                     <span>
                       <strong className="text-white font-semibold mr-2">{item.quantity}x</strong>
                       {item.products?.name || 'Plato artesanal'}
                     </span>
                     {item.unit_price && (
-                      <span className="text-xs text-[#8c6f59]">
+                      <span className="text-xs" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>
                         ${(item.quantity * item.unit_price).toLocaleString()}
                       </span>
                     )}

@@ -313,7 +313,7 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-bold font-rustic text-white tracking-wide">
             Control Total de tu Tienda Online
           </h1>
-          <p className="text-xs text-[#a88a70] mt-1">
+          <p className="text-xs text-[color:var(--store-text-muted)] mt-1">
             Personaliza en profundidad colores, logos, banners, medios de pago, pedido mínimo y horarios de atención.
           </p>
         </div>
@@ -349,13 +349,13 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 1: VISTA PREVIA EN TIEMPO REAL */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#a88a70] flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[color:var(--store-text-muted)] flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5" style={{ color: activePrimary }} />
               Vista Previa Interactiva en Vivo
             </span>
-            <span className="text-[11px] text-[#8c6f59]">
+            <span className="text-[11px] text-[color:var(--store-text-faint)]">
               Reacciona de inmediato a cada cambio
             </span>
           </div>
@@ -443,19 +443,19 @@ export default function SettingsPage() {
                   >
                     {formData.name || 'Nombre de tu Rotisería'}
                   </h3>
-                  <p className="text-xs text-[#d1bea9] leading-relaxed line-clamp-2 max-w-lg">
+                  <p className="text-xs text-[color:var(--store-text-soft)] leading-relaxed line-clamp-2 max-w-lg">
                     {formData.description || 'Comida casera recién hecha a mano, respetando los tiempos y el amor de la cocina tradicional.'}
                   </p>
 
                   {/* Highlights tags preview */}
                   <div className="flex flex-wrap justify-center sm:justify-start gap-1.5 pt-1 text-[10px]">
-                    <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[#e6d3c0]">
+                    <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[color:var(--store-text-soft)]">
                       ✓ {formData.highlight_tag_1}
                     </span>
-                    <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[#e6d3c0]">
+                    <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[color:var(--store-text-soft)]">
                       ✓ {formData.highlight_tag_2}
                     </span>
-                    <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[#e6d3c0]">
+                    <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[color:var(--store-text-soft)]">
                       ✓ {formData.highlight_tag_3}
                     </span>
                   </div>
@@ -475,7 +475,7 @@ export default function SettingsPage() {
                   {formData.hero_cta_text || 'Pedir al plato'}
                 </button>
                 {Number(formData.min_order_amount) > 0 && (
-                  <span className="text-[10px] text-[#a88a70]">
+                  <span className="text-[10px] text-[color:var(--store-text-muted)]">
                     Mínimo: ${Number(formData.min_order_amount).toLocaleString()}
                   </span>
                 )}
@@ -487,12 +487,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 2: CONTROL DE OPERACIÓN & PEDIDOS */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Power className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Operación & Políticas de Pedidos</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Controla en vivo si la tienda está abierta, el pedido mínimo y las reglas de entrega.
               </p>
             </div>
@@ -500,7 +500,7 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Switch de Tienda Abierta / Cerrada */}
-            <div className="sm:col-span-2 bg-[#151210] p-4 rounded-2xl border border-[#382b21] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="sm:col-span-2 bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-sm font-bold text-white flex items-center gap-2">
                   <span 
@@ -508,7 +508,7 @@ export default function SettingsPage() {
                   />
                   <span>Estado del Local: {formData.is_store_open ? 'Abierto y Recibiendo Pedidos' : 'Cerrado Temporalmente'}</span>
                 </p>
-                <p className="text-xs text-[#8c6f59]">
+                <p className="text-xs text-[color:var(--store-text-faint)]">
                   Si desactivas esta opción, tus clientes verán un aviso de local cerrado y no podrán finalizar pedidos.
                 </p>
               </div>
@@ -534,13 +534,13 @@ export default function SettingsPage() {
                   value={formData.closed_message}
                   onChange={(e) => setFormData({ ...formData, closed_message: e.target.value })}
                   placeholder="Ej: Abrimos hoy a las 19:30 hs. ¡Puedes dejarnos tu pedido programado!"
-                  className="w-full bg-[#151210] border border-rose-900/50 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500"
+                  className="w-full bg-[color:var(--store-subtle-bg)] border border-rose-900/50 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Monto Mínimo de Pedido ($)</span>
               </label>
@@ -551,15 +551,15 @@ export default function SettingsPage() {
                 value={formData.min_order_amount}
                 onChange={(e) => setFormData({ ...formData, min_order_amount: Number(e.target.value) || 0 })}
                 placeholder="0 = Sin mínimo"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
-              <p className="text-[10px] text-[#8c6f59]">
+              <p className="text-[10px] text-[color:var(--store-text-faint)]">
                 Los clientes no podrán enviar pedidos si no alcanzan este monto.
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Costo / Modalidad de Envío</span>
               </label>
@@ -568,9 +568,9 @@ export default function SettingsPage() {
                 value={formData.delivery_cost}
                 onChange={(e) => setFormData({ ...formData, delivery_cost: e.target.value })}
                 placeholder="Ej: $1.200 o A coordinar por zona"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
-              <p className="text-[10px] text-[#8c6f59]">
+              <p className="text-[10px] text-[color:var(--store-text-faint)]">
                 Visible en el carrito y durante la confirmación de la orden.
               </p>
             </div>
@@ -580,12 +580,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 3: MEDIOS DE PAGO & PROMOCIONES */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Banknote className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Medios de Pago & Promociones</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Define qué métodos aceptas y premia a quienes abonen en efectivo o transferencia.
               </p>
             </div>
@@ -593,7 +593,7 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Efectivo */}
-            <div className="bg-[#151210] p-4 rounded-2xl border border-[#382b21] space-y-3">
+            <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Banknote className="w-4 h-4 text-emerald-400" />
@@ -603,12 +603,12 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={formData.accepts_cash}
                   onChange={(e) => setFormData({ ...formData, accepts_cash: e.target.checked })}
-                  className="w-4 h-4 accent-[#e59324] rounded cursor-pointer"
+                  className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-[#c7af9a] flex items-center gap-1">
+                <label className="text-[11px] text-[color:var(--store-text-soft)] flex items-center gap-1">
                   <Percent className="w-3 h-3 text-amber-400" />
                   <span>Descuento Especial (%)</span>
                 </label>
@@ -619,13 +619,13 @@ export default function SettingsPage() {
                   value={formData.cash_discount_percentage}
                   onChange={(e) => setFormData({ ...formData, cash_discount_percentage: Number(e.target.value) || 0 })}
                   placeholder="Ej: 10"
-                  className="w-full bg-[#1b1511] border border-[#382b21] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                  className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
                 />
               </div>
             </div>
 
             {/* Transferencia */}
-            <div className="bg-[#151210] p-4 rounded-2xl border border-[#382b21] space-y-3">
+            <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-blue-400" />
@@ -635,24 +635,24 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={formData.accepts_transfer}
                   onChange={(e) => setFormData({ ...formData, accepts_transfer: e.target.checked })}
-                  className="w-4 h-4 accent-[#e59324] rounded cursor-pointer"
+                  className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-[#c7af9a]">Alias o CBU</label>
+                <label className="text-[11px] text-[color:var(--store-text-soft)]">Alias o CBU</label>
                 <input
                   type="text"
                   value={formData.transfer_alias}
                   onChange={(e) => setFormData({ ...formData, transfer_alias: e.target.value })}
                   placeholder="Ej: roti.doncarlos.mp"
-                  className="w-full bg-[#1b1511] border border-[#382b21] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#e59324] font-mono text-[11px]"
+                  className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] font-mono text-[11px]"
                 />
               </div>
             </div>
 
             {/* Tarjeta */}
-            <div className="bg-[#151210] p-4 rounded-2xl border border-[#382b21] space-y-3">
+            <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-purple-400" />
@@ -662,10 +662,10 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={formData.accepts_card}
                   onChange={(e) => setFormData({ ...formData, accepts_card: e.target.checked })}
-                  className="w-4 h-4 accent-[#e59324] rounded cursor-pointer"
+                  className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
                 />
               </div>
-              <p className="text-[11px] text-[#8c6f59]">
+              <p className="text-[11px] text-[color:var(--store-text-faint)]">
                 Cobro mediante terminal POS al entregar o en mostrador.
               </p>
             </div>
@@ -675,12 +675,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 4: LOGOS E IMÁGENES (SUBIDA DIRECTA) */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Upload className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Logo & Imagen de Portada</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Sube tus propios archivos desde tu teléfono o computadora, o selecciona imágenes recomendadas.
               </p>
             </div>
@@ -689,7 +689,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* SUBIDA DE LOGO */}
-            <div className="space-y-3 bg-[#151210] p-4 rounded-2xl border border-[#382b21]">
+            <div className="space-y-3 bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)]">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Store className="w-3.5 h-3.5" style={{ color: activePrimary }} />
@@ -710,7 +710,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4">
                 <div 
                   onClick={() => logoInputRef.current?.click()}
-                  className="w-20 h-20 rounded-2xl border-2 border-dashed border-[#523d2f] hover:border-[#e59324] bg-black/40 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all relative group"
+                  className="w-20 h-20 rounded-2xl border-2 border-dashed border-[color:var(--store-border)] hover:border-[color:var(--brand-primary)] bg-black/40 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all relative group"
                 >
                   {uploadingLogo ? (
                     <Loader2 className="w-6 h-6 animate-spin" style={{ color: activePrimary }} />
@@ -723,8 +723,8 @@ export default function SettingsPage() {
                     />
                   ) : (
                     <div className="text-center p-1">
-                      <Upload className="w-5 h-5 text-[#8c6f59] mx-auto mb-1 group-hover:text-white" />
-                      <span className="text-[9px] text-[#8c6f59] group-hover:text-white">Subir</span>
+                      <Upload className="w-5 h-5 text-[color:var(--store-text-faint)] mx-auto mb-1 group-hover:text-white" />
+                      <span className="text-[9px] text-[color:var(--store-text-faint)] group-hover:text-white">Subir</span>
                     </div>
                   )}
                 </div>
@@ -746,18 +746,18 @@ export default function SettingsPage() {
                     <Upload className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                     <span>{uploadingLogo ? 'Procesando...' : 'Seleccionar Logo de tu PC'}</span>
                   </button>
-                  <p className="text-[10px] text-[#8c6f59]">
+                  <p className="text-[10px] text-[color:var(--store-text-faint)]">
                     PNG transparente, JPG o SVG. Se redimensiona automáticamente.
                   </p>
                 </div>
               </div>
 
               {/* Opción de URL manual */}
-              <div className="pt-2 border-t border-[#261d17]">
+              <div className="pt-2 border-t border-[color:var(--store-border)]">
                 <button
                   type="button"
                   onClick={() => setShowLogoUrlInput(!showLogoUrlInput)}
-                  className="text-[10px] text-[#a88a70] hover:text-white underline"
+                  className="text-[10px] text-[color:var(--store-text-muted)] hover:text-white underline"
                 >
                   {showLogoUrlInput ? 'Ocultar entrada de URL' : '¿Prefieres pegar un enlace URL?'}
                 </button>
@@ -767,14 +767,14 @@ export default function SettingsPage() {
                     value={formData.logo_url}
                     onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
                     placeholder="https://..."
-                    className="mt-2 w-full bg-[#1b1511] border border-[#382b21] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                    className="mt-2 w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
                   />
                 )}
               </div>
             </div>
 
             {/* SUBIDA DE BANNER / HERO */}
-            <div className="space-y-3 bg-[#151210] p-4 rounded-2xl border border-[#382b21]">
+            <div className="space-y-3 bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)]">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-white flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5" style={{ color: activePrimary }} />
@@ -785,7 +785,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4">
                 <div 
                   onClick={() => bannerInputRef.current?.click()}
-                  className="w-28 h-20 rounded-2xl border-2 border-dashed border-[#523d2f] hover:border-[#e59324] bg-black/40 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all relative group shrink-0"
+                  className="w-28 h-20 rounded-2xl border-2 border-dashed border-[color:var(--store-border)] hover:border-[color:var(--brand-primary)] bg-black/40 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all relative group shrink-0"
                 >
                   {uploadingBanner ? (
                     <Loader2 className="w-6 h-6 animate-spin" style={{ color: activePrimary }} />
@@ -798,8 +798,8 @@ export default function SettingsPage() {
                     />
                   ) : (
                     <div className="text-center p-1">
-                      <Upload className="w-5 h-5 text-[#8c6f59] mx-auto mb-1 group-hover:text-white" />
-                      <span className="text-[9px] text-[#8c6f59] group-hover:text-white">Subir</span>
+                      <Upload className="w-5 h-5 text-[color:var(--store-text-faint)] mx-auto mb-1 group-hover:text-white" />
+                      <span className="text-[9px] text-[color:var(--store-text-faint)] group-hover:text-white">Subir</span>
                     </div>
                   )}
                 </div>
@@ -829,7 +829,7 @@ export default function SettingsPage() {
                         key={i}
                         type="button"
                         onClick={() => setFormData({ ...formData, banner_url: p.url })}
-                        className="text-[9px] bg-[#241c16] hover:bg-[#34271e] text-[#e59324] px-2 py-0.5 rounded-lg border border-[#3d2e23]"
+                        className="text-[9px] bg-[color:var(--store-card-bg)] hover:bg-white/5 text-[color:var(--brand-primary)] px-2 py-0.5 rounded-lg border border-[color:var(--store-border)]"
                       >
                         {p.name.split(' ')[0]}
                       </button>
@@ -839,11 +839,11 @@ export default function SettingsPage() {
               </div>
 
               {/* Opción de URL manual */}
-              <div className="pt-2 border-t border-[#261d17]">
+              <div className="pt-2 border-t border-[color:var(--store-border)]">
                 <button
                   type="button"
                   onClick={() => setShowBannerUrlInput(!showBannerUrlInput)}
-                  className="text-[10px] text-[#a88a70] hover:text-white underline"
+                  className="text-[10px] text-[color:var(--store-text-muted)] hover:text-white underline"
                 >
                   {showBannerUrlInput ? 'Ocultar entrada de URL' : '¿Prefieres pegar un enlace URL?'}
                 </button>
@@ -853,7 +853,7 @@ export default function SettingsPage() {
                     value={formData.banner_url}
                     onChange={(e) => setFormData({ ...formData, banner_url: e.target.value })}
                     placeholder="https://..."
-                    className="mt-2 w-full bg-[#1b1511] border border-[#382b21] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                    className="mt-2 w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
                   />
                 )}
               </div>
@@ -865,12 +865,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 5: COLORES & ATMÓSFERA VISUAL */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Palette className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Colores de Marca & Atmósfera</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Afecta directamente los botones de compra, badges, bordes, cabeceras y destacados tanto de la tienda como del panel admin.
               </p>
             </div>
@@ -878,7 +878,7 @@ export default function SettingsPage() {
 
           {/* Paletas de 1 solo click */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[#c7af9a]">Paletas Recomendadas para Gastronomía</label>
+            <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Paletas Recomendadas para Gastronomía</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
               {COLOR_PRESETS.map((preset, idx) => {
                 const isSelected = formData.primary_color === preset.primary && formData.secondary_color === preset.secondary
@@ -894,8 +894,8 @@ export default function SettingsPage() {
                     })}
                     className={`p-2.5 rounded-2xl border text-left transition-all flex flex-col gap-2 ${
                       isSelected 
-                        ? 'bg-[#291e17] border-[#e59324] shadow-md ring-2 ring-[#e59324]/30' 
-                        : 'bg-[#151210] border-[#382b21] hover:border-[#523d2f]'
+                        ? 'bg-[color:var(--store-subtle-bg)] border-[color:var(--brand-primary)] shadow-md ring-2 ring-[color:var(--brand-primary)]/30' 
+                        : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)] hover:border-[color:var(--store-border)]'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -914,8 +914,8 @@ export default function SettingsPage() {
           {/* Inputs de Color Custom */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a]">Color Primario (Botones, Acentos y Precios)</label>
-              <div className="flex items-center gap-3 bg-[#151210] border border-[#382b21] rounded-xl p-2">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Color Primario (Botones, Acentos y Precios)</label>
+              <div className="flex items-center gap-3 bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl p-2">
                 <input
                   type="color"
                   value={formData.primary_color}
@@ -932,8 +932,8 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a]">Color Secundario (Degradados y Etiquetas)</label>
-              <div className="flex items-center gap-3 bg-[#151210] border border-[#382b21] rounded-xl p-2">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Color Secundario (Degradados y Etiquetas)</label>
+              <div className="flex items-center gap-3 bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl p-2">
                 <input
                   type="color"
                   value={formData.secondary_color}
@@ -951,7 +951,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ATMÓSFERA VISUAL (THEMES) */}
-          <div className="pt-4 border-t border-[#2d221b] space-y-3">
+          <div className="pt-4 border-t border-[color:var(--store-border)] space-y-3">
             <div className="flex items-center gap-2">
               <Layout className="w-4 h-4" style={{ color: activePrimary }} />
               <label className="text-xs font-bold text-white">Atmósfera y Fondo Visual</label>
@@ -967,8 +967,8 @@ export default function SettingsPage() {
                     onClick={() => setFormData({ ...formData, theme_style: theme.id })}
                     className={`p-3 rounded-2xl border text-left transition-all ${
                       active 
-                        ? 'border-[#e59324] ring-2 ring-[#e59324]/30 shadow-lg' 
-                        : 'border-[#382b21] hover:border-[#523d2f]'
+                        ? 'border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/30 shadow-lg' 
+                        : 'border-[color:var(--store-border)] hover:border-[color:var(--store-border)]'
                     }`}
                     style={{ backgroundColor: theme.card }}
                   >
@@ -977,7 +977,7 @@ export default function SettingsPage() {
                       {active && <Check className="w-3.5 h-3.5" style={{ color: activePrimary }} />}
                     </div>
                     <p className="text-xs font-bold text-white leading-tight">{theme.name}</p>
-                    <p className="text-[10px] text-[#9c826e] mt-0.5 line-clamp-1">{theme.desc}</p>
+                    <p className="text-[10px] text-[color:var(--store-text-faint)] mt-0.5 line-clamp-1">{theme.desc}</p>
                   </button>
                 )
               })}
@@ -985,7 +985,7 @@ export default function SettingsPage() {
           </div>
 
           {/* TIPOGRAFÍA & HERO CTA */}
-          <div className="pt-4 border-t border-[#2d221b] grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="pt-4 border-t border-[color:var(--store-border)] grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Type className="w-4 h-4" style={{ color: activePrimary }} />
@@ -998,12 +998,12 @@ export default function SettingsPage() {
                   onClick={() => setFormData({ ...formData, font_style: 'serif' })}
                   className={`p-2.5 rounded-2xl border text-left transition-all ${
                     (formData.font_style || 'serif') === 'serif'
-                      ? 'bg-[#291e17] border-[#e59324] ring-2 ring-[#e59324]/30'
-                      : 'bg-[#151210] border-[#382b21]'
+                      ? 'bg-[color:var(--store-subtle-bg)] border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/30'
+                      : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)]'
                   }`}
                 >
                   <p className="text-xs font-bold font-rustic text-white">Rústica Tradicional</p>
-                  <p className="text-[10px] text-[#9c826e]">Serifada, cálida</p>
+                  <p className="text-[10px] text-[color:var(--store-text-faint)]">Serifada, cálida</p>
                 </button>
 
                 <button
@@ -1011,12 +1011,12 @@ export default function SettingsPage() {
                   onClick={() => setFormData({ ...formData, font_style: 'sans' })}
                   className={`p-2.5 rounded-2xl border text-left transition-all ${
                     formData.font_style === 'sans'
-                      ? 'bg-[#291e17] border-[#e59324] ring-2 ring-[#e59324]/30'
-                      : 'bg-[#151210] border-[#382b21]'
+                      ? 'bg-[color:var(--store-subtle-bg)] border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/30'
+                      : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)]'
                   }`}
                 >
                   <p className="text-xs font-bold font-sans text-white">Moderna & Limpia</p>
-                  <p className="text-[10px] text-[#9c826e]">Sans-serif, ágil</p>
+                  <p className="text-[10px] text-[color:var(--store-text-faint)]">Sans-serif, ágil</p>
                 </button>
               </div>
             </div>
@@ -1031,7 +1031,7 @@ export default function SettingsPage() {
                 value={formData.hero_cta_text}
                 onChange={(e) => setFormData({ ...formData, hero_cta_text: e.target.value })}
                 placeholder="Ej: Pedir al plato, Hacer mi pedido, Ver Carta"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
           </div>
@@ -1041,12 +1041,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 6: ANUNCIO DE CABECERA (PROMO BAR) */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Megaphone className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Barra de Anuncios Promocionales</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Mensaje visible en la parte superior de tu tienda para destacar promociones, avisos o novedades.
               </p>
             </div>
@@ -1059,7 +1059,7 @@ export default function SettingsPage() {
                 id="announcement_enabled"
                 checked={formData.announcement_enabled}
                 onChange={(e) => setFormData({ ...formData, announcement_enabled: e.target.checked })}
-                className="w-4 h-4 accent-[#e59324] rounded cursor-pointer"
+                className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
               />
               <label htmlFor="announcement_enabled" className="text-xs font-semibold text-white cursor-pointer">
                 Mostrar barra de anuncio en la parte superior de la tienda
@@ -1073,7 +1073,7 @@ export default function SettingsPage() {
                   value={formData.announcement_banner}
                   onChange={(e) => setFormData({ ...formData, announcement_banner: e.target.value })}
                   placeholder="Ej: 🔥 Horno encendido • 15% OFF abonando en efectivo"
-                  className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                  className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
                 />
               </div>
             )}
@@ -1083,12 +1083,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 7: INFORMACIÓN PÚBLICA, REDES & MAPAS */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Globe className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Información & Canales de Contacto</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Datos de atención visibles en el encabezado, hero y pie de página de tu tienda.
               </p>
             </div>
@@ -1096,40 +1096,40 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a]">Nombre de la Rotisería *</label>
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Nombre de la Rotisería *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a]">Subdominio Asignado</label>
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Subdominio Asignado</label>
               <input
                 type="text"
                 value={formData.subdomain}
                 readOnly
                 title="Para modificar tu subdominio contacta a soporte"
-                className="w-full bg-[#151210]/50 border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-[#8c6f59] cursor-not-allowed focus:outline-none font-mono"
+                className="w-full bg-[color:var(--store-subtle-bg)]/50 border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-[color:var(--store-text-faint)] cursor-not-allowed focus:outline-none font-mono"
               />
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-semibold text-[#c7af9a]">Descripción / Eslogan del Local</label>
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Descripción / Eslogan del Local</label>
               <textarea
                 rows={2}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Breve reseña sobre tus comidas, recetas caseras y tradición culinaria."
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324] resize-none"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] resize-none"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Dirección del Local</span>
               </label>
@@ -1138,12 +1138,12 @@ export default function SettingsPage() {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="Ej: Av. San Martín 1420, Buenos Aires"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Navigation className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Enlace a Google Maps (URL)</span>
               </label>
@@ -1152,12 +1152,12 @@ export default function SettingsPage() {
                 value={formData.google_maps_url}
                 onChange={(e) => setFormData({ ...formData, google_maps_url: e.target.value })}
                 placeholder="https://maps.app.goo.gl/..."
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Teléfono de Pedidos</span>
               </label>
@@ -1166,12 +1166,12 @@ export default function SettingsPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="Ej: +54 9 11 4455-8899"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
                 <span>WhatsApp de Pedidos</span>
               </label>
@@ -1180,12 +1180,12 @@ export default function SettingsPage() {
                 value={formData.whatsapp_number}
                 onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
                 placeholder="Ej: +54 9 11 4455-8899"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <InstagramIcon className="w-3.5 h-3.5 text-pink-400" />
                 <span>Instagram Oficial</span>
               </label>
@@ -1194,12 +1194,12 @@ export default function SettingsPage() {
                 value={formData.instagram_handle}
                 onChange={(e) => setFormData({ ...formData, instagram_handle: e.target.value })}
                 placeholder="Ej: @doncarlos.rotiseria"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <span className="font-bold text-xs text-blue-400">f</span>
                 <span>Página de Facebook (URL)</span>
               </label>
@@ -1208,12 +1208,12 @@ export default function SettingsPage() {
                 value={formData.facebook_url}
                 onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
                 placeholder="Ej: https://facebook.com/rotiseriadoncarlos"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <TikTokIcon className="w-3.5 h-3.5 text-cyan-400" />
                 <span>TikTok (@perfil)</span>
               </label>
@@ -1222,12 +1222,12 @@ export default function SettingsPage() {
                 value={formData.tiktok_handle}
                 onChange={(e) => setFormData({ ...formData, tiktok_handle: e.target.value })}
                 placeholder="Ej: @doncarlos_cocina"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Tiempo Estimado de Entrega</span>
               </label>
@@ -1236,12 +1236,12 @@ export default function SettingsPage() {
                 value={formData.estimated_delivery_time}
                 onChange={(e) => setFormData({ ...formData, estimated_delivery_time: e.target.value })}
                 placeholder="Ej: 30-45 min"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Días y Horarios de Atención</span>
               </label>
@@ -1250,7 +1250,7 @@ export default function SettingsPage() {
                 value={formData.opening_hours}
                 onChange={(e) => setFormData({ ...formData, opening_hours: e.target.value })}
                 placeholder="Ej: Martes a Domingo: 19:30 a 23:45"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
           </div>
@@ -1259,12 +1259,12 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 8: SELLOS DE CONFIANZA & PIE DE PÁGINA */}
         {/* ===================================================================== */}
-        <div className="bg-[#1b1511] border border-[#382b21] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#382b21]">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[color:var(--store-border)]">
             <Award className="w-5 h-5" style={{ color: activePrimary }} />
             <div>
               <h2 className="text-lg font-bold font-rustic text-white">Sellos de Confianza & Pie de Página</h2>
-              <p className="text-xs text-[#a88a70]">
+              <p className="text-xs text-[color:var(--store-text-muted)]">
                 Tres distintivos de garantía y el mensaje de cierre para el pie de tu tienda.
               </p>
             </div>
@@ -1272,7 +1272,7 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5" style={{ color: activePrimary }} />
                 <span>Sello 1 (Especialidad)</span>
               </label>
@@ -1281,12 +1281,12 @@ export default function SettingsPage() {
                 value={formData.highlight_tag_1}
                 onChange={(e) => setFormData({ ...formData, highlight_tag_1: e.target.value })}
                 placeholder="Ej: Horno a Leña & Fuego"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Heart className="w-3.5 h-3.5 text-rose-400" />
                 <span>Sello 2 (Calidad)</span>
               </label>
@@ -1295,12 +1295,12 @@ export default function SettingsPage() {
                 value={formData.highlight_tag_2}
                 onChange={(e) => setFormData({ ...formData, highlight_tag_2: e.target.value })}
                 placeholder="Ej: 100% Casero"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#c7af9a] flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
                 <Award className="w-3.5 h-3.5 text-amber-400" />
                 <span>Sello 3 (Garantía)</span>
               </label>
@@ -1309,19 +1309,19 @@ export default function SettingsPage() {
                 value={formData.highlight_tag_3}
                 onChange={(e) => setFormData({ ...formData, highlight_tag_3: e.target.value })}
                 placeholder="Ej: Atención Directa"
-                className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
               />
             </div>
           </div>
 
           <div className="space-y-1.5 pt-2">
-            <label className="text-xs font-semibold text-[#c7af9a]">Texto Personalizado para el Pie de Página (Footer)</label>
+            <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">Texto Personalizado para el Pie de Página (Footer)</label>
             <input
               type="text"
               value={formData.footer_custom_text}
               onChange={(e) => setFormData({ ...formData, footer_custom_text: e.target.value })}
               placeholder="Ej: Cocina tradicional, recetas familiares y entrega directa sin intermediarios."
-              className="w-full bg-[#151210] border border-[#382b21] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#e59324]"
+              className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
             />
           </div>
         </div>
@@ -1329,8 +1329,8 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* BOTÓN FLOTANTE / INFERIOR DE GUARDADO */}
         {/* ===================================================================== */}
-        <div className="flex items-center justify-between pt-4 border-t border-[#382b21]">
-          <p className="text-xs text-[#8c6f59]">
+        <div className="flex items-center justify-between pt-4 border-t border-[color:var(--store-border)]">
+          <p className="text-xs text-[color:var(--store-text-faint)]">
             Los cambios se aplican de inmediato en la tienda pública y en tu panel de administración.
           </p>
 

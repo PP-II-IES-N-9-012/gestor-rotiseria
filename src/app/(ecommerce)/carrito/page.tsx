@@ -11,6 +11,7 @@ import { useStoreTenant } from '@/lib/useStoreTenant'
 export default function CartPage() {
   const { items, updateQuantity, removeItem, total, clearCart } = useCartStore()
   const { tenant, restaurant, href, storePath } = useStoreTenant()
+  const primaryColor = restaurant?.primary_color || '#e59324'
   const [mounted, setMounted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderDone, setOrderDone] = useState<any>(null)
@@ -32,7 +33,7 @@ export default function CartPage() {
   if (orderDone) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center animate-in fade-in duration-500">
-        <div className="bg-[#1f1712] border border-[#4d3a2b] p-8 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden">
+        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] p-8 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden">
           <div className="w-16 h-16 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center mb-6">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -41,11 +42,11 @@ export default function CartPage() {
           <h2 className="text-3xl md:text-4xl font-rustic font-bold text-white mb-3">
             ¡Comanda Recibida en Cocina!
           </h2>
-          <p className="text-[#c7af9a] mb-6 leading-relaxed">
+          <p className="text-[color:var(--store-text-soft)] mb-6 leading-relaxed">
             Nuestros cocineros ya tienen tu pedido en la comanda. En unos minutos estará marchando al fuego.
           </p>
 
-          <div className="bg-[#17120e] p-4 rounded-xl border border-[#382a1f] mb-8 text-left text-sm text-[#d4bfae]">
+          <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-xl border border-[color:var(--store-border)] mb-8 text-left text-sm text-[color:var(--store-text-soft)]">
             <p><strong className="text-white">Cliente:</strong> {formData.name}</p>
             <p><strong className="text-white">Modalidad:</strong> {formData.deliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}</p>
             {formData.deliveryType === 'delivery' && <p><strong className="text-white">Dirección:</strong> {formData.address}</p>}
@@ -74,11 +75,11 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-24 text-center">
-        <div className="w-20 h-20 rounded-full bg-[#241a14] border border-[#44372e] flex items-center justify-center mx-auto mb-6">
-          <Utensils className="w-8 h-8 text-[#e59324]" />
+        <div className="w-20 h-20 rounded-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] flex items-center justify-center mx-auto mb-6">
+          <Utensils className="w-8 h-8" style={{ color: primaryColor }} />
         </div>
         <h2 className="text-3xl font-rustic font-bold text-white mb-3">Tu comanda está vacía</h2>
-        <p className="text-[#a88a70] mb-8 max-w-md mx-auto">
+        <p className="text-[color:var(--store-text-muted)] mb-8 max-w-md mx-auto">
           Aún no has agregado ninguna de nuestras comidas caseras. Date una vuelta por el menú para ver qué sale del horno hoy.
         </p>
         <Link href={storePath} className="btn-primary inline-flex items-center gap-2">
@@ -136,10 +137,10 @@ export default function CartPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="flex items-center gap-3 mb-8">
-        <ChefHat className="w-8 h-8 text-[#e59324]" />
+        <ChefHat className="w-8 h-8" style={{ color: primaryColor }} />
         <div>
           <h1 className="text-3xl font-rustic font-bold text-white">Tu Comanda</h1>
-          <p className="text-xs text-[#a88a70]">Revisa tus platos y confirma tus datos de entrega</p>
+          <p className="text-xs text-[color:var(--store-text-muted)]">Revisa tus platos y confirma tus datos de entrega</p>
         </div>
       </div>
       
@@ -150,19 +151,29 @@ export default function CartPage() {
           {items.map(item => (
             <div 
               key={item.id} 
-              className="bg-[#1f1712] border border-[#3d2f25] p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md"
+              className="p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border"
+              style={{
+                backgroundColor: 'var(--store-card-bg, #1f1712)',
+                borderColor: `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, #3d2f25))`
+              }}
             >
               <div className="flex-1">
                 <h3 className="font-rustic font-bold text-lg text-white mb-1">{item.name}</h3>
-                <p className="text-[#e59324] font-medium text-sm">${Number(item.price).toLocaleString()} c/u</p>
+                <p className="font-medium text-sm" style={{ color: primaryColor }}>${Number(item.price).toLocaleString()} c/u</p>
               </div>
 
               <div className="flex items-center space-x-4 self-end sm:self-center">
-                <div className="flex items-center space-x-2 bg-[#2b2019] border border-[#44352a] rounded-xl p-1">
+                <div 
+                  className="flex items-center space-x-2 rounded-xl p-1 border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #2b2019)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                >
                   <button 
                     type="button"
                     onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} 
-                    className="p-1.5 hover:text-[#e59324] rounded-lg transition-colors"
+                    className="p-1.5 hover:text-white rounded-lg transition-colors"
                   >
                     <Minus className="w-4 h-4"/>
                   </button>
@@ -170,7 +181,7 @@ export default function CartPage() {
                   <button 
                     type="button"
                     onClick={() => updateQuantity(item.id, item.quantity + 1)} 
-                    className="p-1.5 hover:text-[#e59324] rounded-lg transition-colors"
+                    className="p-1.5 hover:text-white rounded-lg transition-colors"
                   >
                     <Plus className="w-4 h-4"/>
                   </button>
@@ -183,7 +194,7 @@ export default function CartPage() {
                 <button 
                   type="button"
                   onClick={() => removeItem(item.id)} 
-                  className="text-[#8c6d55] hover:text-red-400 p-2 transition-colors rounded-lg hover:bg-red-500/10"
+                  className="p-2 transition-colors rounded-lg hover:bg-red-500/10 text-white/50 hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -191,9 +202,9 @@ export default function CartPage() {
             </div>
           ))}
 
-          <div className="pt-4 flex justify-between items-center text-sm text-[#bda086]">
+          <div className="pt-4 flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
             <span>¿Quieres sumar algo más del horno?</span>
-            <Link href="/tienda" className="text-[#e59324] hover:underline font-semibold flex items-center gap-1">
+            <Link href={storePath} className="hover:underline font-semibold flex items-center gap-1" style={{ color: primaryColor }}>
               <span>+ Agregar más platos</span>
             </Link>
           </div>
@@ -203,22 +214,40 @@ export default function CartPage() {
         <div className="lg:col-span-1">
           <form 
             onSubmit={handleCheckout} 
-            className="bg-[#1f1712] border border-[#4d3a2b] p-6 rounded-3xl sticky top-28 shadow-xl"
+            className="p-6 rounded-3xl sticky top-28 shadow-xl border"
+            style={{
+              backgroundColor: 'var(--store-card-bg, #1f1712)',
+              borderColor: `color-mix(in srgb, ${primaryColor} 22%, var(--store-border, #4d3a2b))`
+            }}
           >
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#3d2f25]">
+            <div 
+              className="flex items-center justify-between mb-6 pb-4 border-b"
+              style={{ borderColor: 'var(--store-border, #3d2f25)' }}
+            >
               <h2 className="text-xl font-rustic font-bold text-white">Datos de Entrega</h2>
-              <span className="text-[11px] text-[#e59324] bg-[#2e1d13] px-2.5 py-0.5 rounded-full border border-[#e59324]/30">
+              <span 
+                className="text-[11px] px-2.5 py-0.5 rounded-full border font-semibold"
+                style={{
+                  color: primaryColor,
+                  backgroundColor: `${primaryColor}20`,
+                  borderColor: `${primaryColor}40`
+                }}
+              >
                 Sin Registro
               </span>
             </div>
             
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-xs font-semibold text-[#c7af9a] mb-1.5">Tu Nombre y Apellido</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Tu Nombre y Apellido</label>
                 <input 
                   required 
                   type="text" 
-                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl px-4 py-2.5 text-white placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-colors text-sm" 
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
                   placeholder="Ej: Marcelo Fernández" 
                   value={formData.name} 
                   onChange={e => setFormData({...formData, name: e.target.value})} 
@@ -226,11 +255,15 @@ export default function CartPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#c7af9a] mb-1.5">Teléfono (WhatsApp)</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Teléfono (WhatsApp)</label>
                 <input 
                   required 
                   type="tel" 
-                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl px-4 py-2.5 text-white placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-colors text-sm" 
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
                   placeholder="Ej: 11 4455-6677" 
                   value={formData.phone} 
                   onChange={e => setFormData({...formData, phone: e.target.value})} 
@@ -238,9 +271,13 @@ export default function CartPage() {
               </div>
               
               <div>
-                <label className="block text-xs font-semibold text-[#c7af9a] mb-1.5">¿Cómo lo prefieres?</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>¿Cómo lo prefieres?</label>
                 <select 
-                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#e59324] transition-colors text-sm" 
+                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
                   value={formData.deliveryType} 
                   onChange={e => setFormData({...formData, deliveryType: e.target.value})}
                 >
@@ -251,11 +288,15 @@ export default function CartPage() {
 
               {formData.deliveryType === 'delivery' && (
                 <div className="animate-in fade-in duration-300">
-                  <label className="block text-xs font-semibold text-[#c7af9a] mb-1.5">Dirección de Entrega</label>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Dirección de Entrega</label>
                   <input 
                     required 
                     type="text" 
-                    className="w-full bg-[#17120e] border border-[#44352a] rounded-xl px-4 py-2.5 text-white placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-colors text-sm" 
+                    className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                    style={{
+                      backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                      borderColor: 'var(--store-border, #44352a)'
+                    }}
                     placeholder="Calle, número y depto/piso" 
                     value={formData.address} 
                     onChange={e => setFormData({...formData, address: e.target.value})} 
@@ -264,9 +305,13 @@ export default function CartPage() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-[#c7af9a] mb-1.5">Forma de Pago</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Forma de Pago</label>
                 <select 
-                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#e59324] transition-colors text-sm" 
+                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
                   value={formData.paymentMethod} 
                   onChange={e => setFormData({...formData, paymentMethod: e.target.value})}
                 >
@@ -291,10 +336,14 @@ export default function CartPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#c7af9a] mb-1.5">Aclaración para la cocina (Opcional)</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Aclaración para la cocina (Opcional)</label>
                 <input 
                   type="text" 
-                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl px-4 py-2.5 text-white placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-colors text-sm" 
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
                   placeholder="Ej: Sin cebolla, tocar timbre 2B" 
                   value={formData.notes} 
                   onChange={e => setFormData({...formData, notes: e.target.value})} 
@@ -303,18 +352,24 @@ export default function CartPage() {
             </div>
 
             {/* Total breakdown */}
-            <div className="border-t border-[#3d2f25] pt-4 mb-6 space-y-2">
-              <div className="flex justify-between items-center text-sm text-[#bda086]">
+            <div 
+              className="border-t pt-4 mb-6 space-y-2"
+              style={{ borderColor: 'var(--store-border, #3d2f25)' }}
+            >
+              <div className="flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
                 <span>Subtotal comida</span>
                 <span className="font-semibold text-white">${total().toLocaleString()}</span>
               </div>
-              <div className="flex justify-between items-center text-xs text-[#8c6f59]">
+              <div className="flex justify-between items-center text-xs" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>
                 <span>Costo de envío</span>
                 <span>{formData.deliveryType === 'delivery' ? 'A coordinar / Fijo' : '¡Gratis! (Retiro)'}</span>
               </div>
-              <div className="flex justify-between items-center text-xl font-bold font-rustic pt-2 border-t border-[#31251e]">
+              <div 
+                className="flex justify-between items-center text-xl font-bold font-rustic pt-2 border-t"
+                style={{ borderColor: 'var(--store-border, #31251e)' }}
+              >
                 <span className="text-white">Total</span>
-                <span className="text-[#e59324]">${total().toLocaleString()}</span>
+                <span style={{ color: primaryColor }}>${total().toLocaleString()}</span>
               </div>
             </div>
 
@@ -327,7 +382,7 @@ export default function CartPage() {
               <ArrowRight className="w-5 h-5" />
             </button>
 
-            <p className="text-[11px] text-center text-[#7a6452] mt-3">
+            <p className="text-[11px] text-center text-[color:var(--store-text-faint)] mt-3">
               🔒 Tu orden viaja directo a la pantalla de cocina sin comisiones
             </p>
           </form>

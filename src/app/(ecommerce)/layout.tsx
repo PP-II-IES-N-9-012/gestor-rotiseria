@@ -27,6 +27,9 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
       style={{
         '--brand-primary': primaryColor,
         '--brand-secondary': secondaryColor,
+        '--color-primary': primaryColor,
+        '--color-secondary': secondaryColor,
+        '--primary': primaryColor,
         backgroundColor: 'var(--store-bg, #151210)'
       } as React.CSSProperties}
     >
@@ -37,7 +40,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.4)',
             borderColor: `${primaryColor}25`,
-            color: '#e8caa4'
+            color: 'var(--store-text-soft, #e8caa4)'
           }}
         >
           <span 
@@ -92,7 +95,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
                 <span className="font-rustic text-2xl font-bold tracking-tight text-[#fcf9f5]">
                   {restaurant?.name || 'La Rotisería'}
                 </span>
-                <span className="text-[11px] text-[#bda086] -mt-1 flex items-center gap-1 font-medium">
+                <span className="text-[11px] text-[color:var(--store-text-muted)] -mt-1 flex items-center gap-1 font-medium">
                   <Sparkles className="w-3 h-3" style={{ color: primaryColor }} />
                   Tienda Oficial • Sabor Casero
                 </span>
@@ -103,20 +106,20 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
             <nav className="hidden md:flex items-center space-x-8">
               <Link 
                 href={storePath} 
-                className="text-[#ddcfc2] transition-colors font-medium text-sm flex items-center gap-1.5 hover:text-white"
+                className="text-[color:var(--store-text-soft)] transition-colors font-medium text-sm flex items-center gap-1.5 hover:text-white"
               >
                 <Utensils className="w-4 h-4" style={{ color: primaryColor }} />
                 Carta & Menú
               </Link>
               <Link 
                 href={href('/seguimiento')} 
-                className="text-[#ddcfc2] transition-colors font-medium text-sm hover:text-white"
+                className="text-[color:var(--store-text-soft)] transition-colors font-medium text-sm hover:text-white"
               >
                 Seguimiento en Vivo
               </Link>
               <Link 
                 href="/" 
-                className="text-xs text-[#a88a70] hover:text-[#fcf9f5] px-3 py-1.5 rounded-lg border border-[#44372e] hover:border-white/20 transition-all"
+                className="text-xs text-[color:var(--store-text-muted)] hover:text-[#fcf9f5] px-3 py-1.5 rounded-lg border border-[color:var(--store-border)] hover:border-[color:var(--brand-primary)] transition-all"
               >
                 Sobre ComandApp
               </Link>
@@ -158,7 +161,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
 
       {/* Warm Footer */}
       <footer 
-        className="border-t py-12 text-[#9e836d] transition-colors"
+        className="border-t py-12 text-[color:var(--store-text-muted)] transition-colors"
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.45)',
           borderColor: `${primaryColor}20`
@@ -170,7 +173,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
               <p className="font-rustic text-xl font-bold text-[#fcf9f5] mb-1">
                 {restaurant?.name || 'ComandApp • Tienda Online'}
               </p>
-              <p className="text-sm text-[#b59982] max-w-md">
+              <p className="text-sm text-[color:var(--store-text-muted)] max-w-md">
                 {restaurant?.footer_custom_text || restaurant?.description || 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.'}
               </p>
             </div>
@@ -185,7 +188,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
               >
                 <span>⚡ 0% Comisiones • Software Gastronómico</span>
               </div>
-              <p className="text-xs text-[#735e4e]">
+              <p className="text-xs text-[color:var(--store-text-faint)]">
                 Potenciado por <Link href="/" className="hover:underline font-semibold" style={{ color: primaryColor }}>ComandApp</Link> © {new Date().getFullYear()}
               </p>
             </div>

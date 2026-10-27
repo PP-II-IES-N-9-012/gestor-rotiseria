@@ -6,7 +6,9 @@ import { getProducts, createOrder } from '@/lib/api'
 import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function POSPage() {
-  const restaurantId = useAdminRestaurant()?.id
+  const restaurant = useAdminRestaurant()
+  const restaurantId = restaurant?.id
+  const primaryColor = restaurant?.primary_color || '#e59324'
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<{id: string, name: string, price: number, quantity: number}[]>([
@@ -83,19 +85,27 @@ export default function POSPage() {
     <div className="flex h-[calc(100vh-8rem)] gap-6">
       {/* Product List */}
       <div className="flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-white/5 flex gap-4">
+        <div className="p-4 border-b flex gap-4" style={{ borderColor: 'var(--store-border, rgba(255,255,255,0.08))' }}>
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--store-text-muted)]" />
             <input 
               type="text" 
               placeholder="Buscar producto..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:border-red-500"
+              className="w-full rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:border-[var(--brand-primary,#e59324)] border text-white placeholder-gray-400"
+              style={{
+                backgroundColor: 'var(--store-bg, rgba(30, 41, 59, 0.5))',
+                borderColor: 'var(--store-border, #334155)'
+              }}
             />
           </div>
           <select 
-            className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2 focus:outline-none"
+            className="rounded-xl px-4 py-2 focus:outline-none border text-white"
+            style={{
+              backgroundColor: 'var(--store-bg, rgba(30, 41, 59, 0.5))',
+              borderColor: 'var(--store-border, #334155)'
+            }}
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
           >
@@ -108,7 +118,7 @@ export default function POSPage() {
         <div className="flex-1 p-4 overflow-y-auto">
           {loading ? (
             <div className="flex justify-center items-center h-full">
-              <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: primaryColor }} />
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -116,14 +126,20 @@ export default function POSPage() {
                 <button 
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className="bg-slate-800/50 hover:bg-slate-700/50 border border-white/5 p-4 rounded-xl text-left transition-all active:scale-95 flex flex-col justify-between aspect-square"
+                  className="p-4 rounded-xl text-left transition-all active:scale-95 flex flex-col justify-between aspect-square border shadow-md group"
+                  style={{
+                    backgroundColor: 'var(--store-card-bg, rgba(30, 41, 59, 0.5))',
+                    borderColor: `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, rgba(255, 255, 255, 0.08)))`
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = `${primaryColor}60`}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, rgba(255, 255, 255, 0.08)))`}
                 >
-                  <span className="font-medium text-sm md:text-base">{p.name}</span>
-                  <span className="text-red-400 font-bold mt-2">${p.price}</span>
+                  <span className="font-medium text-sm md:text-base text-white group-hover:brightness-110">{p.name}</span>
+                  <span className="font-bold mt-2 font-rustic text-base" style={{ color: primaryColor }}>${Number(p.price).toLocaleString()}</span>
                 </button>
               ))}
               {filteredProducts.length === 0 && (
-                <div className="col-span-full text-center text-gray-500 py-10">No se encontraron productos.</div>
+                <div className="col-span-full text-center text-[color:var(--store-text-faint)] py-10">No se encontraron productos.</div>
               )}
             </div>
           )}
@@ -131,42 +147,78 @@ export default function POSPage() {
       </div>
 
       {/* Cart / Ticket */}
-      <div className="w-96 glass-panel rounded-2xl flex flex-col overflow-hidden">
-        <div className="p-4 bg-slate-800/30 border-b border-white/5">
-          <h2 className="font-bold text-lg">Ticket de Venta</h2>
+      <div 
+        className="w-96 rounded-2xl flex flex-col overflow-hidden border shadow-xl"
+        style={{
+          backgroundColor: 'var(--store-card-bg, #1a2230)',
+          borderColor: `color-mix(in srgb, ${primaryColor} 20%, var(--store-border, rgba(255, 255, 255, 0.08)))`
+        }}
+      >
+        <div 
+          className="p-4 border-b flex justify-between items-center"
+          style={{
+            backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.4))',
+            borderColor: 'var(--store-border, rgba(255, 255, 255, 0.08))'
+          }}
+        >
+          <h2 className="font-bold text-lg text-white">Ticket de Venta</h2>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.length === 0 ? (
-            <p className="text-gray-500 text-center mt-10">Sin productos seleccionados</p>
+            <p className="text-[color:var(--store-text-faint)] text-center mt-10">Sin productos seleccionados</p>
           ) : (
             cart.map(item => (
               <div key={item.id} className="flex justify-between items-center text-sm">
                 <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-gray-400">{item.quantity} x ${item.price}</p>
+                  <p className="font-medium text-white">{item.name}</p>
+                  <p className="text-[color:var(--store-text-muted)]">{item.quantity} x ${Number(item.price).toLocaleString()}</p>
                 </div>
-                <span className="font-bold">${item.quantity * item.price}</span>
+                <span className="font-bold font-rustic text-white">${(item.quantity * item.price).toLocaleString()}</span>
               </div>
             ))
           )}
         </div>
 
-        <div className="p-4 border-t border-white/5 bg-slate-900/50">
+        <div 
+          className="p-4 border-t"
+          style={{
+            backgroundColor: 'var(--store-subtle-bg, rgba(15, 23, 42, 0.6))',
+            borderColor: 'var(--store-border, rgba(255, 255, 255, 0.08))'
+          }}
+        >
           <div className="flex justify-between text-xl font-bold mb-4 font-outfit">
             <span>Total</span>
-            <span className="text-red-500">${total}</span>
+            <span style={{ color: primaryColor }}>${total.toLocaleString()}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button 
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl transition-colors border ${paymentMethod === 'cash' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-800 hover:bg-slate-700 border-transparent'}`}
+              className="flex items-center justify-center gap-2 py-3 rounded-xl transition-colors border font-medium"
+              style={paymentMethod === 'cash' ? {
+                backgroundColor: `${primaryColor}20`,
+                borderColor: primaryColor,
+                color: primaryColor
+              } : {
+                backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
+                borderColor: 'var(--store-border, transparent)',
+                color: 'var(--store-text-muted, #94a3b8)'
+              }}
               onClick={() => setPaymentMethod('cash')}
             >
               <Banknote className="w-5 h-5" />
               <span>Efectivo</span>
             </button>
             <button 
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl transition-colors border ${paymentMethod === 'card' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-800 hover:bg-slate-700 border-transparent'}`}
+              className="flex items-center justify-center gap-2 py-3 rounded-xl transition-colors border font-medium"
+              style={paymentMethod === 'card' ? {
+                backgroundColor: `${primaryColor}20`,
+                borderColor: primaryColor,
+                color: primaryColor
+              } : {
+                backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
+                borderColor: 'var(--store-border, transparent)',
+                color: 'var(--store-text-muted, #94a3b8)'
+              }}
               onClick={() => setPaymentMethod('card')}
             >
               <CreditCard className="w-5 h-5" />

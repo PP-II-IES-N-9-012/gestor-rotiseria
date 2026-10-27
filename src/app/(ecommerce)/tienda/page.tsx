@@ -54,14 +54,14 @@ export default async function TiendaPage() {
 
       {/* Custom Hero Banner */}
       <div 
-        className="relative rounded-3xl overflow-hidden border border-[#4d3a2c] p-8 md:p-12 shadow-2xl transition-all"
+        className="relative rounded-3xl overflow-hidden border border-[color:var(--store-border)] p-8 md:p-12 shadow-2xl transition-all"
         style={{
           backgroundImage: `${
             restaurant.hero_overlay_opacity === 'light'
-              ? 'linear-gradient(to right, rgba(21, 18, 16, 0.75), rgba(27, 21, 17, 0.65), rgba(21, 18, 16, 0.70))'
+              ? 'linear-gradient(to right, color-mix(in srgb, var(--store-bg, #151210) 75%, transparent), color-mix(in srgb, var(--store-header-bg, #1b1511) 65%, transparent), color-mix(in srgb, var(--store-bg, #151210) 70%, transparent))'
               : restaurant.hero_overlay_opacity === 'medium'
-              ? 'linear-gradient(to right, rgba(21, 18, 16, 0.85), rgba(27, 21, 17, 0.78), rgba(21, 18, 16, 0.82))'
-              : 'linear-gradient(to right, rgba(21, 18, 16, 0.94), rgba(27, 21, 17, 0.88), rgba(21, 18, 16, 0.92))'
+              ? 'linear-gradient(to right, color-mix(in srgb, var(--store-bg, #151210) 85%, transparent), color-mix(in srgb, var(--store-header-bg, #1b1511) 78%, transparent), color-mix(in srgb, var(--store-bg, #151210) 82%, transparent))'
+              : 'linear-gradient(to right, color-mix(in srgb, var(--store-bg, #151210) 94%, transparent), color-mix(in srgb, var(--store-header-bg, #1b1511) 88%, transparent), color-mix(in srgb, var(--store-bg, #151210) 92%, transparent))'
           }, url(${bannerUrl})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center'
@@ -119,25 +119,29 @@ export default async function TiendaPage() {
               {restaurant.name}
             </h1>
             
-            <p className="text-lg text-[#d1bea9] mb-6 leading-relaxed">
+            <p className="text-lg text-[color:var(--store-text-soft)] mb-6 leading-relaxed">
               {restaurant.description || 'Comida recién hecha a mano, respetando los tiempos y el amor de la cocina tradicional. Pide online y recíbelo humeante en tu casa.'}
             </p>
 
             {/* Badges de Contacto & Servicios */}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-[#b89b82]">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-[color:var(--store-text-muted)]">
               {restaurant.address && (
                 restaurant.google_maps_url ? (
                   <a
                     href={restaurant.google_maps_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-[#2b211a]/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-[#44372e] hover:border-white/30 transition-colors"
+                    className="flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-xl border hover:border-white/30 transition-colors"
+                    style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
                   >
                     <MapPin className="w-3.5 h-3.5" style={{ color: primaryColor }} />
                     <span>{restaurant.address} (Ver Mapa)</span>
                   </a>
                 ) : (
-                  <span className="flex items-center gap-1.5 bg-[#2b211a]/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-[#44372e]">
+                  <span 
+                    className="flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-xl border"
+                    style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+                  >
                     <MapPin className="w-3.5 h-3.5" style={{ color: primaryColor }} />
                     {restaurant.address}
                   </span>
@@ -146,7 +150,8 @@ export default async function TiendaPage() {
               {restaurant.phone && (
                 <a 
                   href={`tel:${restaurant.phone}`} 
-                  className="flex items-center gap-1.5 bg-[#2b211a]/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-[#44372e] hover:border-white/30 transition-colors"
+                  className="flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-xl border hover:border-white/30 transition-colors"
+                  style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
                 >
                   <Phone className="w-3.5 h-3.5" style={{ color: primaryColor }} />
                   {restaurant.phone}
@@ -196,28 +201,37 @@ export default async function TiendaPage() {
                   {restaurant.tiktok_handle}
                 </a>
               )}
-              <span className="flex items-center gap-1.5 bg-[#2b211a]/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-[#44372e]">
+              <span 
+                className="flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-xl border"
+                style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+              >
                 <Clock className="w-3.5 h-3.5 text-emerald-400" />
                 Demora: {deliveryTime}
               </span>
               {restaurant.delivery_cost && (
-                <span className="flex items-center gap-1.5 bg-[#2b211a]/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-[#44372e]">
+                <span 
+                  className="flex items-center gap-1.5 backdrop-blur-sm px-3 py-1.5 rounded-xl border"
+                  style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+                >
                   <span>Envío: {restaurant.delivery_cost}</span>
                 </span>
               )}
             </div>
 
             {restaurant.opening_hours && (
-              <p className="text-[11px] text-[#8c6f59] mt-3">
-                🕒 Horarios: <span className="text-[#c7af9a]">{restaurant.opening_hours}</span>
+              <p className="text-[11px] mt-3" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>
+                🕒 Horarios: <span className="text-[#fcf9f5]">{restaurant.opening_hours}</span>
               </p>
             )}
           </div>
 
           {/* Highlights Box */}
           <div 
-            className="w-full md:w-auto bg-[#1a1410]/85 border rounded-2xl p-6 backdrop-blur-md shadow-xl flex flex-col gap-4 text-sm text-[#e6d3c0]"
-            style={{ borderColor: `${primaryColor}30` }}
+            className="w-full md:w-auto border rounded-2xl p-6 backdrop-blur-md shadow-xl flex flex-col gap-4 text-sm text-[color:var(--store-text-soft)]"
+            style={{ 
+              backgroundColor: 'var(--store-card-bg, #1a1410)',
+              borderColor: `color-mix(in srgb, ${primaryColor} 25%, var(--store-border, #3d2f25))` 
+            }}
           >
             <div className="flex items-center gap-3">
               <div 
@@ -228,7 +242,7 @@ export default async function TiendaPage() {
               </div>
               <div>
                 <p className="font-semibold text-white">{tag1}</p>
-                <p className="text-xs text-[#a88a70]">Especialidad de la casa</p>
+                <p className="text-xs text-[color:var(--store-text-muted)]">Especialidad de la casa</p>
               </div>
             </div>
 
@@ -241,7 +255,7 @@ export default async function TiendaPage() {
               </div>
               <div>
                 <p className="font-semibold text-white">{tag2}</p>
-                <p className="text-xs text-[#a88a70]">Receta y sabor tradicional</p>
+                <p className="text-xs text-[color:var(--store-text-muted)]">Receta y sabor tradicional</p>
               </div>
             </div>
 
@@ -254,7 +268,7 @@ export default async function TiendaPage() {
               </div>
               <div>
                 <p className="font-semibold text-white">{tag3}</p>
-                <p className="text-xs text-[#a88a70]">Sin comisiones de apps externas</p>
+                <p className="text-xs text-[color:var(--store-text-muted)]">Sin comisiones de apps externas</p>
               </div>
             </div>
           </div>
@@ -264,7 +278,7 @@ export default async function TiendaPage() {
 
       {/* Catalog Categories */}
       {categories.length === 0 && (
-        <div className="text-center text-[#ab9079] py-16">
+        <div className="text-center text-[color:var(--store-text-muted)] py-16">
           <p className="text-xl font-rustic">El horno está preparándose para hoy...</p>
           <p className="text-sm mt-2">No hay platos disponibles en este momento.</p>
         </div>
@@ -272,7 +286,10 @@ export default async function TiendaPage() {
 
       {categories.map(category => (
         <section key={category} className="mb-14">
-          <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#3d2e23]">
+          <div 
+            className="flex items-center justify-between mb-8 pb-3 border-b"
+            style={{ borderColor: 'var(--store-border, #3d2e23)' }}
+          >
             <div className="flex items-center gap-3">
               <span 
                 className="w-3 h-3 rounded-full shadow-sm"
@@ -282,7 +299,14 @@ export default async function TiendaPage() {
                 {category}
               </h2>
             </div>
-            <span className="text-xs text-[#a88a70] bg-[#241c16] px-3 py-1 rounded-full border border-[#3d2e23]">
+            <span 
+              className="text-xs px-3 py-1 rounded-full border"
+              style={{
+                backgroundColor: 'var(--store-subtle-bg, #241c16)',
+                borderColor: 'var(--store-border, #3d2e23)',
+                color: 'var(--store-text-muted, #a88a70)'
+              }}
+            >
               {products.filter(p => p.category === category).length} especialidades
             </span>
           </div>
@@ -291,10 +315,17 @@ export default async function TiendaPage() {
             {products.filter(p => p.category === category).map(product => (
               <div 
                 key={product.id} 
-                className="bg-[#1f1814] border border-[#3d2f25] hover:border-white/20 rounded-2xl overflow-hidden hover:-translate-y-1.5 transition-all duration-300 flex flex-col group shadow-lg"
+                className="rounded-2xl overflow-hidden hover:-translate-y-1.5 transition-all duration-300 flex flex-col group shadow-lg border"
+                style={{
+                  backgroundColor: 'var(--store-card-bg, #1f1814)',
+                  borderColor: `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, #3d2f25))`
+                }}
               >
                 {/* Image & Price */}
-                <div className="relative h-52 w-full bg-[#181310] overflow-hidden">
+                <div 
+                  className="relative h-52 w-full overflow-hidden"
+                  style={{ backgroundColor: 'var(--store-subtle-bg, #181310)' }}
+                >
                   {product.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img 
@@ -303,22 +334,36 @@ export default async function TiendaPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-95 group-hover:brightness-100" 
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-[#7a6452] font-medium text-sm">
+                    <div 
+                      className="flex items-center justify-center h-full font-medium text-sm"
+                      style={{ color: 'var(--store-text-muted, #7a6452)' }}
+                    >
                       Foto en preparación
                     </div>
                   )}
                   
                   {/* Price Tag */}
                   <div 
-                    className="absolute top-3 right-3 bg-[#151210]/95 backdrop-blur-sm border text-[#fcf9f5] font-bold py-1.5 px-3 rounded-xl shadow-lg flex items-center gap-1"
-                    style={{ borderColor: `${primaryColor}60` }}
+                    className="absolute top-3 right-3 backdrop-blur-sm border font-bold py-1.5 px-3 rounded-xl shadow-lg flex items-center gap-1"
+                    style={{ 
+                      backgroundColor: 'var(--store-bg, #151210)',
+                      borderColor: `${primaryColor}60`,
+                      color: '#fcf9f5'
+                    }}
                   >
                     <span className="text-xs font-bold" style={{ color: primaryColor }}>$</span>
                     <span className="text-lg font-rustic">{Number(product.price).toLocaleString()}</span>
                   </div>
 
                   {/* Artisanal Badge */}
-                  <div className="absolute bottom-3 left-3 bg-[#1e1713]/85 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-white/10 text-[11px] text-[#fad4a7] font-medium">
+                  <div 
+                    className="absolute bottom-3 left-3 backdrop-blur-sm px-2.5 py-1 rounded-lg border text-[11px] font-medium"
+                    style={{
+                      backgroundColor: 'var(--store-badge-bg, rgba(30,23,19,0.85))',
+                      borderColor: `${primaryColor}35`,
+                      color: primaryColor
+                    }}
+                  >
                     Receta Casera
                   </div>
                 </div>
@@ -326,15 +371,23 @@ export default async function TiendaPage() {
                 {/* Content */}
                 <div className="p-5 flex-grow flex flex-col justify-between">
                   <div className="mb-4">
-                    <h3 className="text-lg font-bold font-rustic text-[#fcf9f5] mb-2 group-hover:text-amber-400 transition-colors">
+                    <h3 
+                      className="text-lg font-bold font-rustic text-[#fcf9f5] mb-2 transition-colors group-hover:text-[color:var(--brand-primary)]"
+                    >
                       {product.name}
                     </h3>
-                    <p className="text-sm text-[#b89e89] line-clamp-2 leading-relaxed">
+                    <p 
+                      className="text-sm line-clamp-2 leading-relaxed"
+                      style={{ color: 'var(--store-text-muted, #b89e89)' }}
+                    >
                       {product.description}
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-[#31251e]">
+                  <div 
+                    className="pt-3 border-t"
+                    style={{ borderColor: 'var(--store-border, #31251e)' }}
+                  >
                     <AddToCartButton product={{ id: product.id, name: product.name, price: Number(product.price) }} />
                   </div>
                 </div>

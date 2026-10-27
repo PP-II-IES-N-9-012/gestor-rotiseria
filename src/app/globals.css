@@ -26,6 +26,18 @@
     --surface-hover: #2c241f;
     --border: #44372e;
     --font-serif: var(--font-serif);
+    --brand-primary: #e59324;
+    --brand-secondary: #d34e2c;
+    --store-bg: #151210;
+    --store-header-bg: #1e1713;
+    --store-card-bg: #1f1814;
+    --store-border: #3d2f25;
+    --store-subtle-bg: #181310;
+    --store-text-muted: #b89e89;
+  --store-text-soft: #ddcfc2;
+  --store-text-faint: #8c6f59;
+    --store-badge-bg: rgba(30, 23, 19, 0.85);
+    --store-badge-text: #fad4a7;
   }
 
   body {
@@ -61,27 +73,27 @@
 
 @layer components {
   .glass-panel {
-    background: rgba(32, 26, 22, 0.85);
+    background: color-mix(in srgb, var(--store-card-bg, #1f1814) 85%, transparent);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(229, 147, 36, 0.15);
+    border: 1px solid color-mix(in srgb, var(--brand-primary, #e59324) 22%, var(--store-border, #3d2f25));
   }
 
   .glass-panel-subtle {
-    background: rgba(26, 21, 18, 0.7);
+    background: color-mix(in srgb, var(--store-card-bg, #1a1512) 70%, transparent);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--store-border, rgba(255, 255, 255, 0.06));
   }
 
   .wood-panel {
-    background: #1e1814;
-    border: 1px solid #3d3128;
+    background: var(--store-card-bg, #1e1814);
+    border: 1px solid var(--store-border, #3d3128);
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
   }
 
   .chalk-board {
-    background: #171513;
-    border: 2px dashed #473a2f;
+    background: var(--store-subtle-bg, #171513);
+    border: 2px dashed var(--store-border, #473a2f);
   }
 
   .btn-primary {
@@ -130,7 +142,7 @@
   }
 
   .btn-secondary {
-    @apply bg-[#2a221d] hover:bg-[#362c26] text-[#faeee1] font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95;
+    @apply bg-[color:var(--store-card-bg)] hover:brightness-125 text-[color:var(--store-text-soft)] font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-95;
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
@@ -142,7 +154,7 @@
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 600;
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: color-mix(in srgb, var(--brand-primary, #e59324) 10%, transparent);
     color: var(--brand-primary, #e59324);
     border: 1px solid var(--brand-primary, #e59324);
     box-shadow: 0 1px 4px rgba(0,0,0,0.2);
@@ -175,29 +187,76 @@
   --store-header-bg: #1e1713;
   --store-card-bg: #1f1814;
   --store-border: #3d2f25;
+  --store-subtle-bg: #181310;
+  --store-text-muted: #b89e89;
+  --store-text-soft: #ddcfc2;
+  --store-text-faint: #8c6f59;
+  --store-badge-bg: rgba(30, 23, 19, 0.85);
+  --store-badge-text: #fad4a7;
 }
 .theme-midnight {
   --store-bg: #0b0d10;
   --store-header-bg: #13171f;
   --store-card-bg: #151b24;
   --store-border: #242f3f;
+  --store-subtle-bg: #10141b;
+  --store-text-muted: #94a3b8;
+  --store-text-soft: #dbe3ee;
+  --store-text-faint: #64748b;
+  --store-badge-bg: rgba(19, 23, 31, 0.85);
+  --store-badge-text: #cbd5e1;
 }
 .theme-bodegon {
   --store-bg: #170f14;
   --store-header-bg: #22141d;
   --store-card-bg: #241620;
   --store-border: #3f2536;
+  --store-subtle-bg: #1b1118;
+  --store-text-muted: #c4a1b8;
+  --store-text-soft: #ecd9e4;
+  --store-text-faint: #94738a;
+  --store-badge-bg: rgba(34, 20, 29, 0.85);
+  --store-badge-text: #f5d0e8;
 }
 .theme-espresso {
   --store-bg: #141110;
   --store-header-bg: #1c1816;
   --store-card-bg: #221c1a;
   --store-border: #382f2c;
+  --store-subtle-bg: #181413;
+  --store-text-muted: #a89f9c;
+  --store-text-soft: #e3dad6;
+  --store-text-faint: #7d7471;
+  --store-badge-bg: rgba(28, 24, 22, 0.85);
+  --store-badge-text: #e8dedb;
 }
 .theme-olive {
   --store-bg: #0e1511;
   --store-header-bg: #142119;
   --store-card-bg: #17261d;
   --store-border: #284032;
+  --store-subtle-bg: #111a14;
+  --store-text-muted: #95b3a0;
+  --store-text-soft: #dbe9df;
+  --store-text-faint: #6b8a77;
+  --store-badge-bg: rgba(20, 33, 25, 0.85);
+  --store-badge-text: #cfe3d5;
+}
+
+.store-card {
+  background-color: var(--store-card-bg, #1f1814);
+  border: 1px solid color-mix(in srgb, var(--brand-primary, #e59324) 18%, var(--store-border, #3d2f25));
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.store-card:hover {
+  border-color: color-mix(in srgb, var(--brand-primary, #e59324) 45%, var(--store-border, #3d2f25));
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px -3px color-mix(in srgb, var(--brand-primary, #e59324) 20%, transparent);
+}
+.store-card-inner {
+  background-color: var(--store-subtle-bg, #181310);
+  border-color: var(--store-border, #3d2f25);
+}
+.store-text-muted {
+  color: var(--store-text-muted, #b89e89);
 }
 
