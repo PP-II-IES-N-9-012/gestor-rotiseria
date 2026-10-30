@@ -11,7 +11,8 @@ export default function AddToCartButton({
   const addItem = useCartStore(state => state.addItem)
   const [added, setAdded] = useState(false)
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation()
     addItem({ ...product, quantity: 1 })
     setAdded(true)
     setTimeout(() => setAdded(false), 1200)
