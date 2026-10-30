@@ -29,11 +29,14 @@ export default function StoreFrontClient({
   initialProducts,
   showSubdomainBadge = false
 }: StoreFrontClientProps) {
-  const [restaurant, setRestaurant] = useState<RestaurantInfo>(() => mergeBranding(initialRestaurant))
+  const [restaurant, setRestaurant] = useState<RestaurantInfo>(initialRestaurant)
   const [products, setProducts] = useState<ProductItem[]>(initialProducts)
 
   useEffect(() => {
     let cancelled = false
+
+    // Aplicar inmediatamente cualquier personalización local guardada tras hidratar
+    setRestaurant(prev => mergeBranding(prev))
 
     const syncLatest = async () => {
       const freshRest = await getRestaurant(initialRestaurant.subdomain || initialRestaurant.id)
@@ -165,7 +168,7 @@ export default function StoreFrontClient({
 
                 {Number(restaurant.min_order_amount) > 0 && (
                   <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-black/50 text-[color:var(--store-text-soft)] border border-white/15 shadow-sm backdrop-blur-sm">
-                    <span>Pedido mín: ${Number(restaurant.min_order_amount).toLocaleString()}</span>
+                    <span>Pedido mín: ${Number(restaurant.min_order_amount).toLocaleString('es-AR')}</span>
                   </div>
                 )}
               </div>

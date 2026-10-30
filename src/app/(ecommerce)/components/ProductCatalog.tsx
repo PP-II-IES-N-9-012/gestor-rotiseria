@@ -138,7 +138,7 @@ export default function ProductCatalog({
                     }}
                   >
                     <span className="text-xs font-bold" style={{ color: primaryColor }}>$</span>
-                    <span className="text-lg font-rustic">{Number(product.price).toLocaleString()}</span>
+                    <span className="text-lg font-rustic">{Number(product.price).toLocaleString('es-AR')}</span>
                   </div>
 
                   {/* Artisanal Badge */}
