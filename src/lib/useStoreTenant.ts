@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
+import { getRestaurant, getRestaurantStrict, mergeBranding, invalidateCache, type RestaurantInfo } from '@/lib/api'
 import { getClientTenant, tenantPath } from '@/lib/tenant'
 
 /**
  * Resuelve el comercio de la tienda pública en el cliente (subdominio,
  * ?negocio= o /tienda/<slug>) y expone helpers para armar links que no
- * pierdan el tenant.
+ * pierdan el tenant. También sincroniza en vivo los cambios del panel de Admin.
  */
 export function useStoreTenant() {
   const [tenant, setTenant] = useState<string | null>(null)
@@ -18,17 +18,36 @@ export function useStoreTenant() {
     let cancelled = false
     const slug = getClientTenant()
     setTenant(slug)
-    if (!slug) {
-      setReady(true)
-      return
-    }
-    getRestaurantStrict(slug).then(r => {
+
+    const load = async () => {
+      if (!slug) {
+        const def = await getRestaurant()
+        if (cancelled) return
+        setRestaurant(mergeBranding(def))
+        setReady(true)
+        return
+      }
+      const r = await getRestaurantStrict(slug)
       if (cancelled) return
-      setRestaurant(r)
+      setRestaurant(r ? mergeBranding(r) : null)
       setReady(true)
-    })
+    }
+
+    load()
+
+    const handleBrandingUpdate = () => {
+      invalidateCache('restaurant')
+      invalidateCache('restaurant_strict')
+      load()
+    }
+
+    window.addEventListener('comandapp-branding-updated', handleBrandingUpdate)
+    window.addEventListener('storage', handleBrandingUpdate)
+
     return () => {
       cancelled = true
+      window.removeEventListener('comandapp-branding-updated', handleBrandingUpdate)
+      window.removeEventListener('storage', handleBrandingUpdate)
     }
   }, [])
 

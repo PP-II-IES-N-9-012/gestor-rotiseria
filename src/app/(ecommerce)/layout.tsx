@@ -1,10 +1,29 @@
 'use client'
 
 import Link from 'next/link'
-import { ShoppingCart, Utensils, Flame, Sparkles } from 'lucide-react'
+import { 
+  ShoppingCart, 
+  Utensils, 
+  Flame, 
+  Sparkles, 
+  MapPin, 
+  Phone, 
+  MessageCircle, 
+  Clock 
+} from 'lucide-react'
 import { useCartStore } from '@/store/useCartStore'
 import { useState, useEffect } from 'react'
 import { useStoreTenant } from '@/lib/useStoreTenant'
+
+function InstagramIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+    </svg>
+  )
+}
 
 export default function EcommerceLayout({ children }: { children: React.ReactNode }) {
   const { items } = useCartStore()
@@ -20,6 +39,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
   const fontClass = restaurant?.font_style === 'sans' ? 'font-modern' : 'font-rustic'
   const announcementText = restaurant?.announcement_banner || '🔥 Horno encendido y cocina despachando pedidos en vivo'
   const showAnnouncement = restaurant?.announcement_enabled !== false
+  const deliveryTime = restaurant?.estimated_delivery_time || '35-45 min'
 
   return (
     <div 
@@ -68,34 +88,34 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+          <div className="flex justify-between items-center h-22 py-3">
             
             {/* Logo / Brand */}
-            <Link href={storePath} className="flex items-center space-x-3 group">
+            <Link href={storePath} className="flex items-center space-x-3.5 group">
               {restaurant?.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
                   src={restaurant.logo_url} 
                   alt={restaurant.name} 
-                  className="w-12 h-12 object-contain rounded-2xl bg-black/40 p-1.5 border shadow-md group-hover:scale-105 transition-all" 
-                  style={{ borderColor: `${primaryColor}40` }}
+                  className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-2xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-all" 
+                  style={{ borderColor: `${primaryColor}50` }}
                 />
               ) : (
                 <div 
-                  className="p-2.5 rounded-2xl group-hover:rotate-6 transition-all duration-300 shadow-lg text-white"
+                  className="p-3 rounded-2xl group-hover:rotate-6 transition-all duration-300 shadow-lg text-white"
                   style={{ 
                     background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
                     boxShadow: `0 4px 14px ${primaryColor}40`
                   }}
                 >
-                  <Flame className="w-6 h-6" />
+                  <Flame className="w-7 h-7" />
                 </div>
               )}
               <div className="flex flex-col">
                 <span className="font-rustic text-2xl font-bold tracking-tight text-[#fcf9f5]">
                   {restaurant?.name || 'La Rotisería'}
                 </span>
-                <span className="text-[11px] text-[color:var(--store-text-muted)] -mt-1 flex items-center gap-1 font-medium">
+                <span className="text-[11px] text-[color:var(--store-text-muted)] -mt-0.5 flex items-center gap-1 font-medium">
                   <Sparkles className="w-3 h-3" style={{ color: primaryColor }} />
                   Tienda Oficial • Sabor Casero
                 </span>
@@ -159,7 +179,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      {/* Warm Footer */}
+      {/* Warm Footer with Contact & Service Bubbles */}
       <footer 
         className="border-t py-12 text-[color:var(--store-text-muted)] transition-colors"
         style={{
@@ -167,18 +187,35 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
           borderColor: `${primaryColor}20`
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+          
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
-            <div>
-              <p className="font-rustic text-xl font-bold text-[#fcf9f5] mb-1">
-                {restaurant?.name || 'ComandApp • Tienda Online'}
-              </p>
-              <p className="text-sm text-[color:var(--store-text-muted)] max-w-md">
-                {restaurant?.footer_custom_text || restaurant?.description || 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.'}
-              </p>
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              {restaurant?.logo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img 
+                  src={restaurant.logo_url} 
+                  alt={restaurant.name} 
+                  className="w-16 h-16 object-cover rounded-2xl bg-black/40 p-1 border shadow-md shrink-0" 
+                  style={{ borderColor: `${primaryColor}40` }}
+                />
+              )}
+              <div>
+                <p className="font-rustic text-xl font-bold text-[#fcf9f5] mb-1">
+                  {restaurant?.name || 'ComandApp • Tienda Online'}
+                </p>
+                <p className="text-sm text-[color:var(--store-text-muted)] max-w-md">
+                  {restaurant?.footer_custom_text || restaurant?.description || 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.'}
+                </p>
+                {restaurant?.opening_hours && (
+                  <p className="text-xs mt-2 text-[color:var(--store-text-soft)]">
+                    🕒 Horarios de atención: <span className="text-[#fcf9f5] font-medium">{restaurant.opening_hours}</span>
+                  </p>
+                )}
+              </div>
             </div>
             
-            <div className="flex flex-col items-center md:items-end gap-2">
+            <div className="flex flex-col items-center md:items-end gap-2 shrink-0">
               <div 
                 className="badge-rustic"
                 style={{
@@ -193,6 +230,114 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
               </p>
             </div>
           </div>
+
+          {/* Burbujas de Contacto, Redes y Servicios en el Footer */}
+          {restaurant && (
+            <div 
+              className="pt-6 border-t flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-[color:var(--store-text-muted)]"
+              style={{ borderColor: `${primaryColor}15` }}
+            >
+              {restaurant.address && (
+                restaurant.google_maps_url ? (
+                  <a
+                    href={restaurant.google_maps_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 backdrop-blur-sm px-3.5 py-2 rounded-xl border hover:border-white/30 transition-colors"
+                    style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+                  >
+                    <MapPin className="w-3.5 h-3.5" style={{ color: primaryColor }} />
+                    <span>{restaurant.address} (Ver Mapa)</span>
+                  </a>
+                ) : (
+                  <span 
+                    className="flex items-center gap-1.5 backdrop-blur-sm px-3.5 py-2 rounded-xl border"
+                    style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+                  >
+                    <MapPin className="w-3.5 h-3.5" style={{ color: primaryColor }} />
+                    {restaurant.address}
+                  </span>
+                )
+              )}
+
+              {restaurant.phone && (
+                <a 
+                  href={`tel:${restaurant.phone}`} 
+                  className="flex items-center gap-1.5 backdrop-blur-sm px-3.5 py-2 rounded-xl border hover:border-white/30 transition-colors"
+                  style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+                >
+                  <Phone className="w-3.5 h-3.5" style={{ color: primaryColor }} />
+                  {restaurant.phone}
+                </a>
+              )}
+
+              {restaurant.whatsapp_number && (
+                <a 
+                  href={`https://wa.me/${restaurant.whatsapp_number.replace(/[^0-9]/g, '')}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-[#14321c]/90 text-emerald-300 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-emerald-600/40 hover:bg-[#1a4225] transition-colors"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  WhatsApp
+                </a>
+              )}
+
+              {restaurant.instagram_handle && (
+                <a 
+                  href={`https://instagram.com/${restaurant.instagram_handle.replace('@', '')}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-[#2b211a]/90 text-pink-300 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-pink-700/30 hover:border-pink-500/50 transition-colors"
+                >
+                  <InstagramIcon className="w-3.5 h-3.5 text-pink-400" />
+                  {restaurant.instagram_handle}
+                </a>
+              )}
+
+              {restaurant.facebook_url && (
+                <a 
+                  href={restaurant.facebook_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-[#17253d]/90 text-blue-300 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-blue-700/30 hover:border-blue-500/50 transition-colors"
+                >
+                  <span className="font-bold text-xs text-blue-400">f</span>
+                  Facebook
+                </a>
+              )}
+
+              {restaurant.tiktok_handle && (
+                <a 
+                  href={`https://tiktok.com/@${restaurant.tiktok_handle.replace('@', '')}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-[#121c24]/90 text-cyan-300 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-cyan-700/30 hover:border-cyan-500/50 transition-colors"
+                >
+                  <span className="font-bold text-xs text-cyan-400">t</span>
+                  {restaurant.tiktok_handle}
+                </a>
+              )}
+
+              <span 
+                className="flex items-center gap-1.5 backdrop-blur-sm px-3.5 py-2 rounded-xl border"
+                style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+              >
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                Demora: {deliveryTime}
+              </span>
+
+              {restaurant.delivery_cost && (
+                <span 
+                  className="flex items-center gap-1.5 backdrop-blur-sm px-3.5 py-2 rounded-xl border"
+                  style={{ backgroundColor: 'var(--store-card-bg, #2b211a)', borderColor: 'var(--store-border, #44372e)' }}
+                >
+                  <span>Envío: {restaurant.delivery_cost}</span>
+                </span>
+              )}
+            </div>
+          )}
+
         </div>
       </footer>
     </div>

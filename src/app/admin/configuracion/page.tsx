@@ -396,25 +396,25 @@ export default function SettingsPage() {
           >
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
               
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
-                {/* Logo Preview */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+                {/* Logo Preview Agrandado */}
                 {formData.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={formData.logo_url}
                     alt="Logo Preview"
-                    className="w-16 h-16 object-contain rounded-2xl bg-black/60 p-1.5 border shadow-xl shrink-0"
-                    style={{ borderColor: `${activePrimary}50` }}
+                    className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-3xl bg-black/60 p-1.5 border-2 shadow-2xl shrink-0"
+                    style={{ borderColor: `${activePrimary}60` }}
                   />
                 ) : (
                   <div 
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-xl shrink-0"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl flex items-center justify-center text-white shadow-2xl shrink-0"
                     style={{ 
                       background: `linear-gradient(135deg, ${activePrimary}, ${activeSecondary})`,
                       boxShadow: `0 4px 14px ${activePrimary}50`
                     }}
                   >
-                    <Flame className="w-8 h-8" />
+                    <Flame className="w-10 h-10" />
                   </div>
                 )}
 
@@ -710,7 +710,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-4">
                 <div 
                   onClick={() => logoInputRef.current?.click()}
-                  className="w-20 h-20 rounded-2xl border-2 border-dashed border-[color:var(--store-border)] hover:border-[color:var(--brand-primary)] bg-black/40 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all relative group"
+                  className="w-28 h-28 shrink-0 rounded-2xl border-2 border-dashed border-[color:var(--store-border)] hover:border-[color:var(--brand-primary)] bg-black/40 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all relative group"
                 >
                   {uploadingLogo ? (
                     <Loader2 className="w-6 h-6 animate-spin" style={{ color: activePrimary }} />
@@ -719,7 +719,7 @@ export default function SettingsPage() {
                     <img 
                       src={formData.logo_url} 
                       alt="Logo" 
-                      className="w-full h-full object-contain p-1.5 group-hover:opacity-60 transition-opacity" 
+                      className="w-full h-full object-cover p-1 group-hover:opacity-60 transition-opacity" 
                     />
                   ) : (
                     <div className="text-center p-1">

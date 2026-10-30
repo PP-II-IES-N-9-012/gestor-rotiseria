@@ -13,6 +13,7 @@ interface ProductCatalogProps {
   secondaryColor?: string
   cashDiscountPercentage?: number
   deliveryTime?: string
+  ctaText?: string
 }
 
 export default function ProductCatalog({
@@ -21,7 +22,8 @@ export default function ProductCatalog({
   primaryColor = '#e59324',
   secondaryColor = '#d34e2c',
   cashDiscountPercentage = 0,
-  deliveryTime = '35-45 min'
+  deliveryTime = '35-45 min',
+  ctaText = 'Pedir al plato'
 }: ProductCatalogProps) {
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -172,7 +174,10 @@ export default function ProductCatalog({
                     className="pt-3 border-t"
                     style={{ borderColor: 'var(--store-border, #31251e)' }}
                   >
-                    <AddToCartButton product={{ id: product.id, name: product.name, price: Number(product.price) }} />
+                    <AddToCartButton 
+                      product={{ id: product.id, name: product.name, price: Number(product.price) }} 
+                      ctaText={ctaText}
+                    />
                   </div>
                 </div>
 

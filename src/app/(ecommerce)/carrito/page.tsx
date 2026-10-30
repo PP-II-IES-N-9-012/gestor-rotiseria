@@ -16,7 +16,7 @@ export default function CartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderDone, setOrderDone] = useState<any>(null)
   const router = useRouter()
-  
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -54,13 +54,13 @@ export default function CartPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
+            <Link
               href={href('/seguimiento')}
               className="btn-amber text-center py-3 px-6"
             >
               Rastrear mi pedido
             </Link>
-            <Link 
+            <Link
               href={storePath}
               className="btn-secondary text-center py-3 px-6"
             >
@@ -90,6 +90,11 @@ export default function CartPage() {
     )
   }
 
+  const subtotal = total()
+  const cashDiscountPct = formData.paymentMethod === 'cash' ? Number(restaurant?.cash_discount_percentage || 0) : 0
+  const discountAmount = cashDiscountPct > 0 ? Math.round((subtotal * cashDiscountPct) / 100) : 0
+  const finalTotal = Math.max(0, subtotal - discountAmount)
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
     if (tenant && !restaurant) {
@@ -102,17 +107,17 @@ export default function CartPage() {
       return
     }
 
-    if (restaurant && restaurant.min_order_amount && total() < Number(restaurant.min_order_amount)) {
+    if (restaurant && restaurant.min_order_amount && subtotal < Number(restaurant.min_order_amount)) {
       alert(`El pedido mínimo para este local es de $${Number(restaurant.min_order_amount).toLocaleString()}.`)
       return
     }
 
     setIsSubmitting(true)
-    
+
     try {
       const newOrder = await createOrder({
         delivery_type: formData.deliveryType,
-        total_amount: total(),
+        total_amount: finalTotal,
         guest_name: formData.name,
         guest_phone: formData.phone,
         guest_address: formData.address,
@@ -121,7 +126,8 @@ export default function CartPage() {
       }, items.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
-        unit_price: item.price
+        unit_price: item.price,
+        product_name: item.name
       })), restaurant?.id)
 
       clearCart()
@@ -143,14 +149,14 @@ export default function CartPage() {
           <p className="text-xs text-[color:var(--store-text-muted)]">Revisa tus platos y confirma tus datos de entrega</p>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        
+
         {/* Items List */}
         <div className="lg:col-span-2 space-y-4">
           {items.map(item => (
-            <div 
-              key={item.id} 
+            <div
+              key={item.id}
               className="p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border"
               style={{
                 backgroundColor: 'var(--store-card-bg, #1f1712)',
@@ -163,27 +169,27 @@ export default function CartPage() {
               </div>
 
               <div className="flex items-center space-x-4 self-end sm:self-center">
-                <div 
+                <div
                   className="flex items-center space-x-2 rounded-xl p-1 border"
                   style={{
                     backgroundColor: 'var(--store-subtle-bg, #2b2019)',
                     borderColor: 'var(--store-border, #44352a)'
                   }}
                 >
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} 
+                    onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
                     className="p-1.5 hover:text-white rounded-lg transition-colors"
                   >
-                    <Minus className="w-4 h-4"/>
+                    <Minus className="w-4 h-4" />
                   </button>
                   <span className="w-8 text-center font-bold text-sm text-white">{item.quantity}</span>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)} 
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
                     className="p-1.5 hover:text-white rounded-lg transition-colors"
                   >
-                    <Plus className="w-4 h-4"/>
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
 
@@ -191,9 +197,9 @@ export default function CartPage() {
                   <p className="font-rustic font-bold text-white">${(item.price * item.quantity).toLocaleString()}</p>
                 </div>
 
-                <button 
+                <button
                   type="button"
-                  onClick={() => removeItem(item.id)} 
+                  onClick={() => removeItem(item.id)}
                   className="p-2 transition-colors rounded-lg hover:bg-red-500/10 text-white/50 hover:text-red-400"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -212,20 +218,20 @@ export default function CartPage() {
 
         {/* Checkout Form */}
         <div className="lg:col-span-1">
-          <form 
-            onSubmit={handleCheckout} 
+          <form
+            onSubmit={handleCheckout}
             className="p-6 rounded-3xl sticky top-28 shadow-xl border"
             style={{
               backgroundColor: 'var(--store-card-bg, #1f1712)',
               borderColor: `color-mix(in srgb, ${primaryColor} 22%, var(--store-border, #4d3a2b))`
             }}
           >
-            <div 
+            <div
               className="flex items-center justify-between mb-6 pb-4 border-b"
               style={{ borderColor: 'var(--store-border, #3d2f25)' }}
             >
               <h2 className="text-xl font-rustic font-bold text-white">Datos de Entrega</h2>
-              <span 
+              <span
                 className="text-[11px] px-2.5 py-0.5 rounded-full border font-semibold"
                 style={{
                   color: primaryColor,
@@ -236,50 +242,50 @@ export default function CartPage() {
                 Sin Registro
               </span>
             </div>
-            
+
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Tu Nombre y Apellido</label>
-                <input 
-                  required 
-                  type="text" 
-                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                <input
+                  required
+                  type="text"
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
                   style={{
                     backgroundColor: 'var(--store-subtle-bg, #17120e)',
                     borderColor: 'var(--store-border, #44352a)'
                   }}
-                  placeholder="Ej: Marcelo Fernández" 
-                  value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                  placeholder="Ej: Marcelo Fernández"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Teléfono (WhatsApp)</label>
-                <input 
-                  required 
-                  type="tel" 
-                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                <input
+                  required
+                  type="tel"
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
                   style={{
                     backgroundColor: 'var(--store-subtle-bg, #17120e)',
                     borderColor: 'var(--store-border, #44352a)'
                   }}
-                  placeholder="Ej: 11 4455-6677" 
-                  value={formData.phone} 
-                  onChange={e => setFormData({...formData, phone: e.target.value})} 
+                  placeholder="Ej: 11 4455-6677"
+                  value={formData.phone}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>¿Cómo lo prefieres?</label>
-                <select 
-                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                <select
+                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
                   style={{
                     backgroundColor: 'var(--store-subtle-bg, #17120e)',
                     borderColor: 'var(--store-border, #44352a)'
                   }}
-                  value={formData.deliveryType} 
-                  onChange={e => setFormData({...formData, deliveryType: e.target.value})}
+                  value={formData.deliveryType}
+                  onChange={e => setFormData({ ...formData, deliveryType: e.target.value })}
                 >
                   <option value="delivery">🛵 Envío a Domicilio (Delivery)</option>
                   <option value="local_pickup">🏪 Retiro por el Local (Take Away)</option>
@@ -289,37 +295,43 @@ export default function CartPage() {
               {formData.deliveryType === 'delivery' && (
                 <div className="animate-in fade-in duration-300">
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Dirección de Entrega</label>
-                  <input 
-                    required 
-                    type="text" 
-                    className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                  <input
+                    required
+                    type="text"
+                    className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
                     style={{
                       backgroundColor: 'var(--store-subtle-bg, #17120e)',
                       borderColor: 'var(--store-border, #44352a)'
                     }}
-                    placeholder="Calle, número y depto/piso" 
-                    value={formData.address} 
-                    onChange={e => setFormData({...formData, address: e.target.value})} 
+                    placeholder="Calle, número y depto/piso"
+                    value={formData.address}
+                    onChange={e => setFormData({ ...formData, address: e.target.value })}
                   />
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Forma de Pago</label>
-                <select 
-                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                <select
+                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
                   style={{
                     backgroundColor: 'var(--store-subtle-bg, #17120e)',
                     borderColor: 'var(--store-border, #44352a)'
                   }}
-                  value={formData.paymentMethod} 
-                  onChange={e => setFormData({...formData, paymentMethod: e.target.value})}
+                  value={formData.paymentMethod}
+                  onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
                 >
-                  <option value="cash">
-                    💵 Efectivo al recibir {Number(restaurant?.cash_discount_percentage) > 0 ? `(${restaurant?.cash_discount_percentage}% OFF)` : ''}
-                  </option>
-                  <option value="mercadopago">📱 MercadoPago / Transferencia</option>
-                  <option value="card">💳 Tarjeta Débito/Crédito</option>
+                  {restaurant?.accepts_cash !== false && (
+                    <option value="cash">
+                      💵 Efectivo al recibir {Number(restaurant?.cash_discount_percentage) > 0 ? `(${restaurant?.cash_discount_percentage}% OFF)` : ''}
+                    </option>
+                  )}
+                  {restaurant?.accepts_transfer !== false && (
+                    <option value="mercadopago">📱 MercadoPago / Transferencia</option>
+                  )}
+                  {restaurant?.accepts_card !== false && (
+                    <option value="card">💳 Tarjeta Débito/Crédito</option>
+                  )}
                 </select>
 
                 {formData.paymentMethod === 'mercadopago' && restaurant?.transfer_alias && (
@@ -330,51 +342,57 @@ export default function CartPage() {
 
                 {formData.paymentMethod === 'cash' && Number(restaurant?.cash_discount_percentage) > 0 && (
                   <p className="text-[11px] text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/30">
-                    ⚡ <strong>Promoción:</strong> ¡Obtienes un {restaurant?.cash_discount_percentage}% de descuento abonando en efectivo al repartidor!
+                    ⚡ <strong>Promoción:</strong> ¡Obtienes un {restaurant?.cash_discount_percentage}% de descuento (-${discountAmount.toLocaleString()}) abonando en efectivo!
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Aclaración para la cocina (Opcional)</label>
-                <input 
-                  type="text" 
-                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border" 
+                <input
+                  type="text"
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
                   style={{
                     backgroundColor: 'var(--store-subtle-bg, #17120e)',
                     borderColor: 'var(--store-border, #44352a)'
                   }}
-                  placeholder="Ej: Sin cebolla, tocar timbre 2B" 
-                  value={formData.notes} 
-                  onChange={e => setFormData({...formData, notes: e.target.value})} 
+                  placeholder="Ej: Sin cebolla, tocar timbre 2B"
+                  value={formData.notes}
+                  onChange={e => setFormData({ ...formData, notes: e.target.value })}
                 />
               </div>
             </div>
 
             {/* Total breakdown */}
-            <div 
+            <div
               className="border-t pt-4 mb-6 space-y-2"
               style={{ borderColor: 'var(--store-border, #3d2f25)' }}
             >
               <div className="flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
                 <span>Subtotal comida</span>
-                <span className="font-semibold text-white">${total().toLocaleString()}</span>
+                <span className="font-semibold text-white">${subtotal.toLocaleString()}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center text-xs text-emerald-400 font-semibold">
+                  <span>Descuento en efectivo ({cashDiscountPct}%)</span>
+                  <span>-${discountAmount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-xs" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>
                 <span>Costo de envío</span>
-                <span>{formData.deliveryType === 'delivery' ? 'A coordinar / Fijo' : '¡Gratis! (Retiro)'}</span>
+                <span>{formData.deliveryType === 'delivery' ? (restaurant?.delivery_cost || 'A coordinar') : '¡Gratis! (Retiro)'}</span>
               </div>
-              <div 
+              <div
                 className="flex justify-between items-center text-xl font-bold font-rustic pt-2 border-t"
                 style={{ borderColor: 'var(--store-border, #31251e)' }}
               >
                 <span className="text-white">Total</span>
-                <span style={{ color: primaryColor }}>${total().toLocaleString()}</span>
+                <span style={{ color: primaryColor }}>${finalTotal.toLocaleString()}</span>
               </div>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isSubmitting}
               className="btn-primary w-full flex items-center justify-center space-x-2 py-3.5 text-base font-semibold disabled:opacity-50"
             >

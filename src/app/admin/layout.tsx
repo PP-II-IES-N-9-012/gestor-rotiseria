@@ -229,27 +229,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div>
           <div 
-            className="h-24 flex items-center px-6 border-b transition-colors"
+            className="min-h-[6.5rem] py-3 flex items-center px-6 border-b transition-colors"
             style={{ borderColor: `${primaryColor}20` }}
           >
-            <Link href="/" className="flex items-center space-x-3 group">
+            <Link href="/" className="flex items-center space-x-3.5 group">
               {restaurant?.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img 
                   src={restaurant.logo_url} 
                   alt={restaurant.name} 
-                  className="w-10 h-10 object-contain rounded-xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-transform"
-                  style={{ borderColor: `${primaryColor}40` }}
+                  className="w-14 h-14 object-cover rounded-2xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-transform shrink-0"
+                  style={{ borderColor: `${primaryColor}50` }}
                 />
               ) : (
                 <div 
-                  className="p-2 rounded-xl group-hover:rotate-6 transition-transform shadow-md text-white"
+                  className="p-2.5 rounded-2xl group-hover:rotate-6 transition-transform shadow-md text-white shrink-0"
                   style={{
                     background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
                     boxShadow: `0 4px 14px ${primaryColor}40`
                   }}
                 >
-                  <Flame className="w-5 h-5" />
+                  <Flame className="w-6 h-6" />
                 </div>
               )}
               <div className="flex flex-col">
