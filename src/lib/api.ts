@@ -410,11 +410,31 @@ export async function getPublicTenantId() {
   return tenantId
 }
 
-// Helper para fusionar branding personalizado
-function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
-  const custom = inMemoryRestaurantBranding.get(rest.id) || inMemoryRestaurantBranding.get(rest.subdomain.toLowerCase())
-  if (!custom) return rest
-  return { ...rest, ...custom }
+// Helper para fusionar branding personalizado (memoria + localStorage en cliente)
+export function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
+  let merged: RestaurantInfo = { ...rest }
+  if (typeof window !== 'undefined') {
+    try {
+      const bySub = rest.subdomain ? window.localStorage.getItem(`comandapp_branding_${rest.subdomain.toLowerCase()}`) : null
+      const byId = rest.id ? window.localStorage.getItem(`comandapp_branding_${rest.id.toLowerCase()}`) : null
+      const latest = window.localStorage.getItem('comandapp_branding_latest')
+      if (latest) {
+        const parsedLatest = JSON.parse(latest)
+        if (parsedLatest && (parsedLatest.id === rest.id || parsedLatest.subdomain === rest.subdomain || !rest.subdomain)) {
+          merged = { ...merged, ...parsedLatest }
+        }
+      }
+      if (bySub) merged = { ...merged, ...JSON.parse(bySub) }
+      if (byId) merged = { ...merged, ...JSON.parse(byId) }
+    } catch {
+      // Ignore localStorage parse errors
+    }
+  }
+  const custom = inMemoryRestaurantBranding.get(rest.id) || (rest.subdomain ? inMemoryRestaurantBranding.get(rest.subdomain.toLowerCase()) : undefined)
+  if (custom) {
+    merged = { ...merged, ...custom }
+  }
+  return merged
 }
 
 // Obtener restaurante por subdominio o ID
@@ -508,34 +528,73 @@ export async function updateRestaurantBranding(
   restaurantId: string,
   data: Partial<RestaurantInfo>
 ) {
-  // Guardar en respaldo en memoria de inmediato para reactividad total
+  // 1. Guardar en respaldo en memoria y localStorage de inmediato para reactividad total
   const current = inMemoryRestaurantBranding.get(restaurantId) || {}
-  inMemoryRestaurantBranding.set(restaurantId, { ...current, ...data })
+  const mergedData = { ...current, ...data, id: restaurantId }
+  inMemoryRestaurantBranding.set(restaurantId, mergedData)
+  if (data.subdomain) {
+    inMemoryRestaurantBranding.set(data.subdomain.toLowerCase(), mergedData)
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(`comandapp_branding_${restaurantId.toLowerCase()}`, JSON.stringify(mergedData))
+      if (data.subdomain) {
+        window.localStorage.setItem(`comandapp_branding_${data.subdomain.toLowerCase()}`, JSON.stringify(mergedData))
+      }
+      window.localStorage.setItem('comandapp_branding_latest', JSON.stringify(mergedData))
+    } catch (e) {
+      console.warn('Could not save branding to localStorage:', e)
+    }
+  }
+
+  // 2. Intentar persistir todos los campos soportados en Supabase
+  const payload: Record<string, any> = { ...data }
+  delete payload.id
+  delete payload.subdomain // Subdominio es de solo lectura tras creación
 
   try {
-    const { error } = await supabase
-      .from('restaurants')
-      .update(data)
-      .eq('id', restaurantId)
+    let attempts = 0
+    while (Object.keys(payload).length > 0 && attempts < 15) {
+      attempts++
+      const { error } = await supabase
+        .from('restaurants')
+        .update(payload)
+        .eq('id', restaurantId)
 
-    if (error) {
-      console.warn('Could not update all restaurant columns in DB (pending migration?):', error.message)
-      // Si falló por columnas que aún no existen, intentamos actualizar solo los campos básicos
-      const basicFields: any = {}
+      if (!error) break
+
+      // Si PostgREST indica que una columna aún no fue migrada en la tabla restaurants, la quitamos y reintentamos con el resto
+      const match = error.message?.match(/Could not find the '([^']+)' column|column "([^"]+)" of relation/i)
+      const missingCol = match?.[1] || match?.[2]
+      if (missingCol && missingCol in payload) {
+        delete payload[missingCol]
+        continue
+      }
+
+      console.warn('Could not update all restaurant columns in DB:', error.message)
+      const basicFields: Record<string, any> = {}
       if (data.name) basicFields.name = data.name
-      if (data.description) basicFields.description = data.description
-      if (data.address) basicFields.address = data.address
-      if (data.phone) basicFields.phone = data.phone
+      if (data.description !== undefined) basicFields.description = data.description
+      if (data.address !== undefined) basicFields.address = data.address
+      if (data.phone !== undefined) basicFields.phone = data.phone
       if (Object.keys(basicFields).length > 0) {
         await supabase.from('restaurants').update(basicFields).eq('id', restaurantId)
       }
+      break
     }
   } catch (err) {
     console.warn('DB update error for restaurant branding:', err)
   }
 
   invalidateCache('restaurant')
+  invalidateCache('restaurant_strict')
   invalidateCache('all_restaurants')
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('comandapp-branding-updated', { detail: mergedData }))
+  }
+
   return true
 }
 
@@ -871,6 +930,9 @@ export async function deductInventoryForItems(
   invalidateCache('critical_inventory')
 }
 
+// Respaldo en memoria para órdenes e inventario creados en modo demo o con productos de muestra
+const inMemoryCreatedOrders: any[] = []
+
 // --- Orders (Public & Admin) ---
 export async function createOrder(
   order: {
@@ -883,42 +945,98 @@ export async function createOrder(
     notes?: string
     status?: string
   },
-  items: { product_id: string; quantity: number; unit_price: number }[],
+  items: { product_id: string; quantity: number; unit_price: number; product_name?: string }[],
   restaurantId?: string
 ) {
   const id = restaurantId || (await getPublicTenantId())
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-  const { data: newOrder, error: orderError } = await supabase
-    .from('orders')
-    .insert({
+  const uuidItems = items.filter((item) => uuidRegex.test(item.product_id))
+  const nonUuidItems = items.filter((item) => !uuidRegex.test(item.product_id))
+
+  let finalNotes = order.notes || ''
+  if (nonUuidItems.length > 0) {
+    const fallbackSummary = nonUuidItems
+      .map((i) => {
+        const found = ARTISANAL_FALLBACK_PRODUCTS.find((p) => p.id === i.product_id)
+        return `${i.quantity}x ${i.product_name || found?.name || i.product_id}`
+      })
+      .join(', ')
+    finalNotes = finalNotes ? `${finalNotes} | Ítems: ${fallbackSummary}` : `Ítems: ${fallbackSummary}`
+  }
+
+  let createdOrder: any = null
+
+  try {
+    const { data: newOrder, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        ...order,
+        notes: finalNotes || undefined,
+        restaurant_id: id
+      })
+      .select()
+      .single()
+
+    if (orderError) throw orderError
+    createdOrder = newOrder
+
+    if (uuidItems.length > 0) {
+      const orderItems = uuidItems.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        order_id: newOrder.id
+      }))
+
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
+      if (itemsError) {
+        console.warn('Warning inserting order_items:', itemsError.message)
+      }
+    }
+  } catch (dbErr) {
+    console.warn('Fallback order creation in memory:', dbErr)
+    createdOrder = {
+      id: `ord-${Math.random().toString(36).substring(2, 8)}`,
+      restaurant_id: id,
       ...order,
-      restaurant_id: id
+      notes: finalNotes || undefined,
+      status: order.status || 'pending',
+      created_at: new Date().toISOString()
+    }
+  }
+
+  // Guardar representación rica con nombres de productos para visualización inmediata en Cocina / KPIs
+  const enrichedOrder = {
+    ...createdOrder,
+    order_items: items.map((i) => {
+      const found = ARTISANAL_FALLBACK_PRODUCTS.find((p) => p.id === i.product_id)
+      return {
+        quantity: i.quantity,
+        product_id: i.product_id,
+        unit_price: i.unit_price,
+        products: {
+          name: i.product_name || found?.name || 'Plato del Menú'
+        }
+      }
     })
-    .select()
-    .single()
+  }
 
-  if (orderError) throw orderError
-
-  const orderItems = items.map((item) => ({
-    ...item,
-    order_id: newOrder.id
-  }))
-
-  const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
-
-  if (itemsError) throw itemsError
+  inMemoryCreatedOrders.unshift(enrichedOrder)
 
   // Descontar automáticamente del inventario según las recetas de los productos
-  try {
-    await deductInventoryForItems(items, id)
-  } catch (deductErr) {
-    console.warn('Could not auto-deduct inventory for order:', deductErr)
+  if (uuidItems.length > 0) {
+    try {
+      await deductInventoryForItems(uuidItems, id)
+    } catch (deductErr) {
+      console.warn('Could not auto-deduct inventory for order:', deductErr)
+    }
   }
 
   invalidateCache('orders')
   invalidateCache('today_orders')
 
-  return newOrder
+  return enrichedOrder
 }
 
 // Para seguimiento público
@@ -1048,20 +1166,36 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
     .in('status', statuses)
   if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
 
+  const memMatches = inMemoryCreatedOrders.filter(
+    (o) => statuses.includes(o.status) && (!restaurantId || o.restaurant_id === restaurantId)
+  )
+
   const query = builder
     .order('created_at', { ascending: true })
     .then(({ data, error }) => {
-      if (!error && data && data.length > 0) return data
-      return SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))
+      if (!error && data && data.length > 0) {
+        return data.map((dbOrder: any) => {
+          const mem = inMemoryCreatedOrders.find((m) => m.id === dbOrder.id)
+          if (mem && (!dbOrder.order_items || dbOrder.order_items.length === 0)) {
+            return { ...dbOrder, order_items: mem.order_items }
+          }
+          return dbOrder
+        })
+      }
+      return [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
     })
 
-  const fallback = SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))
+  const fallback = [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
   const result = await withTimeout(query, 1200, fallback)
   setCached(cacheKey, result, 10)
   return result
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
+  const memOrder = inMemoryCreatedOrders.find((o) => o.id === orderId)
+  if (memOrder) {
+    memOrder.status = status
+  }
   try {
     const { error } = await supabase
       .from('orders')
@@ -1123,7 +1257,7 @@ export async function getCriticalInventory(restaurantId?: string) {
 
   const query = builder.then(({ data, error }) => {
     if (!error && data && (data.length > 0 || restaurantId)) {
-      return data.filter((item: any) => item.quantity_available <= item.min_stock)
+      return data.filter((item: any) => Number(item.quantity_available) <= Number(item.min_stock))
     }
     return fallback
   })
@@ -1134,6 +1268,11 @@ export async function getCriticalInventory(restaurantId?: string) {
 }
 
 export async function refillInventory(itemId: string, amount: number) {
+  const sampleIdx = SAMPLE_INVENTORY.findIndex((i) => i.id === itemId)
+  if (sampleIdx !== -1) {
+    SAMPLE_INVENTORY[sampleIdx].quantity_available = Number(SAMPLE_INVENTORY[sampleIdx].quantity_available) + Number(amount)
+  }
+
   try {
     const { data: current, error: fetchError } = await supabase
       .from('inventory_items')
@@ -1145,7 +1284,7 @@ export async function refillInventory(itemId: string, amount: number) {
 
     const { error } = await supabase
       .from('inventory_items')
-      .update({ quantity_available: current.quantity_available + amount })
+      .update({ quantity_available: Number(current.quantity_available) + Number(amount) })
       .eq('id', itemId)
 
     if (error) throw error
@@ -1154,6 +1293,108 @@ export async function refillInventory(itemId: string, amount: number) {
   }
   invalidateCache('critical_inventory')
   invalidateCache('all_inventory')
+}
+
+export async function createInventoryItem(
+  itemData: {
+    name: string
+    quantity_available: number
+    unit: string
+    min_stock: number
+  },
+  restaurantId?: string
+) {
+  const id = restaurantId || (await getPublicTenantId())
+
+  try {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .insert({
+        restaurant_id: id,
+        name: itemData.name.trim(),
+        quantity_available: Number(itemData.quantity_available),
+        unit: itemData.unit.trim(),
+        min_stock: Number(itemData.min_stock)
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    invalidateCache('critical_inventory')
+    invalidateCache('all_inventory')
+    return data
+  } catch (err) {
+    console.warn('Fallback createInventoryItem in memory:', err)
+    const mockItem = {
+      id: `inv-${Date.now()}`,
+      restaurant_id: id,
+      name: itemData.name.trim(),
+      quantity_available: Number(itemData.quantity_available),
+      unit: itemData.unit.trim(),
+      min_stock: Number(itemData.min_stock)
+    }
+    SAMPLE_INVENTORY.push(mockItem)
+    invalidateCache('critical_inventory')
+    invalidateCache('all_inventory')
+    return mockItem
+  }
+}
+
+export async function updateInventoryItem(
+  itemId: string,
+  itemData: {
+    name: string
+    quantity_available: number
+    unit: string
+    min_stock: number
+  },
+  restaurantId?: string
+) {
+  const sampleIdx = SAMPLE_INVENTORY.findIndex((i) => i.id === itemId)
+  if (sampleIdx !== -1) {
+    SAMPLE_INVENTORY[sampleIdx] = {
+      ...SAMPLE_INVENTORY[sampleIdx],
+      name: itemData.name.trim(),
+      quantity_available: Number(itemData.quantity_available),
+      unit: itemData.unit.trim(),
+      min_stock: Number(itemData.min_stock)
+    }
+  }
+
+  let builder = supabase
+    .from('inventory_items')
+    .update({
+      name: itemData.name.trim(),
+      quantity_available: Number(itemData.quantity_available),
+      unit: itemData.unit.trim(),
+      min_stock: Number(itemData.min_stock)
+    })
+    .eq('id', itemId)
+
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const { error } = await builder
+  if (error && sampleIdx === -1) throw error
+
+  invalidateCache('critical_inventory')
+  invalidateCache('all_inventory')
+}
+
+export async function deleteInventoryItem(itemId: string, restaurantId?: string) {
+  const sampleIdx = SAMPLE_INVENTORY.findIndex((i) => i.id === itemId)
+  if (sampleIdx !== -1) {
+    SAMPLE_INVENTORY.splice(sampleIdx, 1)
+  }
+
+  let builder = supabase.from('inventory_items').delete().eq('id', itemId)
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+
+  const { error } = await builder
+  if (error && sampleIdx === -1) throw error
+
+  invalidateCache('critical_inventory')
+  invalidateCache('all_inventory')
+  invalidateCache('admin_products')
 }
 
 export async function getAllInventory(restaurantId?: string) {
@@ -1699,22 +1940,6 @@ export async function saveInventoryItem(
         min_stock: Number(itemData.min_stock),
       })
     }
-  }
-
-  invalidateCache('all_inventory')
-  invalidateCache('critical_inventory')
-}
-
-export async function deleteInventoryItem(itemId: string, restaurantId?: string) {
-  try {
-    let builder = supabase.from('inventory_items').delete().eq('id', itemId)
-    if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
-    const { error } = await builder
-    if (error) throw error
-  } catch (err) {
-    console.warn('Error deleting inventory item:', err)
-    const idx = SAMPLE_INVENTORY.findIndex((i) => i.id === itemId)
-    if (idx !== -1) SAMPLE_INVENTORY.splice(idx, 1)
   }
 
   invalidateCache('all_inventory')

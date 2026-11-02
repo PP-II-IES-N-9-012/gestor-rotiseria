@@ -208,13 +208,13 @@ export default function ProductDetailModal({
               <div className="flex items-baseline gap-1">
                 <span className="text-lg font-bold" style={{ color: primaryColor }}>$</span>
                 <span className="text-3xl sm:text-4xl font-extrabold font-rustic text-white tracking-tight">
-                  {priceNum.toLocaleString()}
+                  {priceNum.toLocaleString('es-AR')}
                 </span>
               </div>
 
               {cashPrice && (
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-sm">
-                  ⚡ ${cashPrice.toLocaleString()} con {cashDiscount}% OFF en Efectivo
+                  ⚡ ${cashPrice.toLocaleString('es-AR')} con {cashDiscount}% OFF en Efectivo
                 </span>
               )}
             </div>
@@ -318,7 +318,7 @@ export default function ProductDetailModal({
                 <div className="text-right">
                   <div className="text-[10px] uppercase tracking-wider text-[color:var(--store-text-muted)]">Subtotal</div>
                   <div className="text-sm font-bold text-white font-rustic">
-                    ${subtotal.toLocaleString()}
+                    ${subtotal.toLocaleString('es-AR')}
                   </div>
                 </div>
               </div>
@@ -351,7 +351,7 @@ export default function ProductDetailModal({
                 <>
                   <ShoppingCart className="w-5 h-5" />
                   <span className="text-base font-bold">
-                    Pedir al plato • ${subtotal.toLocaleString()}
+                    Pedir al plato • ${subtotal.toLocaleString('es-AR')}
                   </span>
                 </>
               )}

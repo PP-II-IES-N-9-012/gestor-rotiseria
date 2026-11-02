@@ -4,9 +4,11 @@ import { useCartStore } from '@/store/useCartStore'
 import { useState } from 'react'
 
 export default function AddToCartButton({ 
-  product 
+  product,
+  ctaText = 'Pedir al plato'
 }: { 
-  product: { id: string, name: string, price: number } 
+  product: { id: string, name: string, price: number }
+  ctaText?: string
 }) {
   const addItem = useCartStore(state => state.addItem)
   const [added, setAdded] = useState(false)
@@ -42,7 +44,7 @@ export default function AddToCartButton({
       ) : (
         <>
           <ShoppingCart className="w-4 h-4" />
-          <span className="text-sm font-semibold">Pedir al plato</span>
+          <span className="text-sm font-semibold">{ctaText || 'Pedir al plato'}</span>
         </>
       )}
     </button>
