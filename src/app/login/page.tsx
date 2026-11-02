@@ -209,7 +209,7 @@ export default function LoginPage() {
         
         {/* Support Link */}
         <p className="text-center text-xs text-[#8c6f59] mt-6">
-          ¿Problemas para acceder? Contacta a <a href="#" className="text-[#e59324] hover:underline font-semibold">soporte técnico</a>
+          ¿Problemas para acceder? Contacta a <a href="https://wa.me/5491144558899?text=Hola%20ComandApp,%20necesito%20ayuda%20para%20ingresar%20a%20mi%20panel" target="_blank" rel="noopener noreferrer" className="text-[#e59324] hover:underline font-semibold">soporte técnico vía WhatsApp</a>
         </p>
       </div>
     </div>

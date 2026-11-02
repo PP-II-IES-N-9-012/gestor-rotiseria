@@ -87,8 +87,8 @@ export const FALLBACK_RESTAURANT: RestaurantInfo = {
  * Optimiza y comprime imágenes del lado del cliente en un canvas liviano
  */
 export async function compressAndPrepareImage(
-  file: File, 
-  maxDimension = 800, 
+  file: File,
+  maxDimension = 800,
   quality = 0.85
 ): Promise<string> {
   if (file.type === 'image/svg+xml') {
@@ -153,7 +153,7 @@ export async function uploadRestaurantMedia(
   try {
     const ext = file.name.split('.').pop() || 'webp'
     const fileName = `${type}s/${restaurantId}-${Date.now()}.${ext}`
-    
+
     const res = await fetch(dataUrl)
     const blob = await res.blob()
 
@@ -443,7 +443,7 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
   }
 
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrSubdomain)
-  
+
   const query = (async () => {
     if (isUuid) {
       const { data } = await supabase.from('restaurants').select('*').eq('id', idOrSubdomain).maybeSingle()
@@ -505,7 +505,7 @@ export async function getRestaurantStrict(subdomain: string): Promise<Restaurant
 
 // Guarda la configuración completa y branding de un restaurante
 export async function updateRestaurantBranding(
-  restaurantId: string, 
+  restaurantId: string,
   data: Partial<RestaurantInfo>
 ) {
   // Guardar en respaldo en memoria de inmediato para reactividad total
@@ -572,7 +572,7 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
       .select('*')
       .eq('restaurant_id', id)
       .eq('is_available', true)
-    
+
     const isSample = SAMPLE_RESTAURANTS.some(r => r.id === id) || id === FALLBACK_RESTAURANT.id
     if (!error && data && (data.length > 0 || !isSample)) {
       return data
@@ -646,7 +646,7 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
       let plainBuilder = supabase.from('products').select('*')
       if (restaurantId) plainBuilder = plainBuilder.eq('restaurant_id', restaurantId)
       const { data: plainData } = await plainBuilder.order('name', { ascending: true })
-      
+
       const list = plainData || (restaurantId ? [] : ARTISANAL_FALLBACK_PRODUCTS)
       return list.map((p: any) => ({
         ...p,
@@ -693,7 +693,7 @@ export async function saveProduct(
   recipe: { inventory_item_id: string; quantity: number }[],
   restaurantId: string
 ) {
-  const code = productData.code?.trim() || 
+  const code = productData.code?.trim() ||
     productData.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 10) + '-' + Math.floor(Math.random() * 900 + 100)
 
   let productId = productData.id
@@ -800,8 +800,8 @@ export async function deductInventoryForItems(
 
   // 1. Obtener recetas de la base de datos o fallback
   const productIds = items.map(i => i.product_id)
-  
-  let ingredientsMap = new Map<string, { inventory_item_id: string; quantity: number }[]>()
+
+  const ingredientsMap = new Map<string, { inventory_item_id: string; quantity: number }[]>()
 
   try {
     const { data: dbIngredients } = await supabase
@@ -924,7 +924,7 @@ export async function createOrder(
 // Para seguimiento público
 export async function getOrderById(orderId: string, restaurantId?: string) {
   const id = restaurantId || (await getPublicTenantId())
-  
+
   const query = supabase
     .from('orders')
     .select(`
@@ -1176,4 +1176,547 @@ export async function getAllInventory(restaurantId?: string) {
   const result = await withTimeout(query, 1200, fallback)
   setCached(cacheKey, result, 30)
   return result
+}
+
+
+// ============================================================================
+// GERENCIA KPI & HISTORICAL ANALYTICS
+// ============================================================================
+
+export type TimePeriod = 'today' | 'week' | 'month' | 'all'
+
+export interface HourlyOrDailyStat {
+  label: string
+  fullLabel?: string
+  sales: number
+  orders: number
+}
+
+export interface TopProductStat {
+  name: string
+  quantity: number
+  revenue: number
+}
+
+export interface GerenciaStats {
+  period: TimePeriod
+  periodLabel: string
+  totalSales: number
+  totalOrders: number
+  averageTicket: number
+  completedOrders: number
+  pendingOrPreparingOrders: number
+  cashSales: number
+  cashOrdersCount: number
+  cardSales: number
+  cardOrdersCount: number
+  deliverySales: number
+  deliveryOrdersCount: number
+  pickupSales: number
+  pickupOrdersCount: number
+  chartData: HourlyOrDailyStat[]
+  topProducts: TopProductStat[]
+  orders: any[]
+}
+
+export const SAMPLE_HISTORICAL_ORDERS = [
+  ...SAMPLE_ADMIN_ORDERS,
+  {
+    id: 'ord-hist-101',
+    delivery_type: 'delivery',
+    guest_name: 'Claudio Méndez',
+    guest_phone: '+54 9 11 4545-1212',
+    guest_address: 'San Martín 820',
+    status: 'completed',
+    payment_method: 'card',
+    total_amount: 27000,
+    created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000 - 3 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 2, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } },
+      { quantity: 1, unit_price: 2000, products: { name: 'Gaseosa 1.5L' } }
+    ]
+  },
+  {
+    id: 'ord-hist-102',
+    delivery_type: 'local_pickup',
+    guest_name: 'María Eugenia Sosa',
+    guest_phone: '+54 9 11 3434-7878',
+    guest_address: '',
+    status: 'completed',
+    payment_method: 'cash',
+    total_amount: 19200,
+    created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000 - 5 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 12, unit_price: 1600, products: { name: 'Empanadas Criollas Cortadas a Cuchillo' } }
+    ]
+  },
+  {
+    id: 'ord-hist-103',
+    delivery_type: 'delivery',
+    guest_name: 'Facundo Álvarez',
+    guest_phone: '+54 9 11 8899-0011',
+    guest_address: 'Corrientes 3450',
+    status: 'completed',
+    payment_method: 'card',
+    total_amount: 32600,
+    created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000 - 2 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 2, unit_price: 14500, products: { name: 'Milanesa de Ternera Napolitana con Fritas' } },
+      { quantity: 3, unit_price: 1200, products: { name: 'Empanadas Caseras' } }
+    ]
+  },
+  {
+    id: 'ord-hist-104',
+    delivery_type: 'local_pickup',
+    guest_name: 'Patricia Luna',
+    guest_phone: '+54 9 11 2233-1122',
+    guest_address: '',
+    status: 'completed',
+    payment_method: 'cash',
+    total_amount: 21600,
+    created_at: new Date(Date.now() - 4 * 24 * 3600 * 1000 - 4 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 3, unit_price: 7200, products: { name: 'Tarta Pascualina al Horno' } }
+    ]
+  },
+  {
+    id: 'ord-hist-105',
+    delivery_type: 'delivery',
+    guest_name: 'Joaquín Benítez',
+    guest_phone: '+54 9 11 9988-7766',
+    guest_address: 'Las Heras 770',
+    status: 'completed',
+    payment_method: 'mercadopago',
+    total_amount: 35400,
+    created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000 - 6 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 3, unit_price: 11800, products: { name: 'Sorrentinos Caseros de Jamón y Muzzarella' } }
+    ]
+  },
+  {
+    id: 'ord-hist-106',
+    delivery_type: 'delivery',
+    guest_name: 'Santiago Morales',
+    guest_phone: '+54 9 11 5544-3322',
+    guest_address: 'Pellegrini 1024',
+    status: 'completed',
+    payment_method: 'card',
+    total_amount: 29800,
+    created_at: new Date(Date.now() - 6 * 24 * 3600 * 1000 - 1 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 2, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } },
+      { quantity: 1, unit_price: 4800, products: { name: 'Papas Rústicas' } }
+    ]
+  },
+  {
+    id: 'ord-hist-107',
+    delivery_type: 'local_pickup',
+    guest_name: 'Carolina Varela',
+    guest_phone: '+54 9 11 7766-5544',
+    guest_address: '',
+    status: 'completed',
+    payment_method: 'cash',
+    total_amount: 24000,
+    created_at: new Date(Date.now() - 8 * 24 * 3600 * 1000 - 2 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 15, unit_price: 1600, products: { name: 'Empanadas Criollas Cortadas a Cuchillo' } }
+    ]
+  },
+  {
+    id: 'ord-hist-108',
+    delivery_type: 'delivery',
+    guest_name: 'Ignacio Rivas',
+    guest_phone: '+54 9 11 3344-5566',
+    guest_address: 'Alsina 450',
+    status: 'completed',
+    payment_method: 'card',
+    total_amount: 43500,
+    created_at: new Date(Date.now() - 12 * 24 * 3600 * 1000 - 4 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 3, unit_price: 14500, products: { name: 'Milanesa de Ternera Napolitana con Fritas' } }
+    ]
+  },
+  {
+    id: 'ord-hist-109',
+    delivery_type: 'delivery',
+    guest_name: 'Gonzalo Fuentes',
+    guest_phone: '+54 9 11 9911-2233',
+    guest_address: 'Av. Colón 1800',
+    status: 'completed',
+    payment_method: 'cash',
+    total_amount: 37500,
+    created_at: new Date(Date.now() - 18 * 24 * 3600 * 1000 - 3 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 3, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } }
+    ]
+  },
+  {
+    id: 'ord-hist-110',
+    delivery_type: 'local_pickup',
+    guest_name: 'Daniela Torres',
+    guest_phone: '+54 9 11 6655-4433',
+    guest_address: '',
+    status: 'completed',
+    payment_method: 'mercadopago',
+    total_amount: 28800,
+    created_at: new Date(Date.now() - 24 * 24 * 3600 * 1000 - 5 * 3600 * 1000).toISOString(),
+    order_items: [
+      { quantity: 4, unit_price: 7200, products: { name: 'Tarta Pascualina al Horno' } }
+    ]
+  }
+]
+
+export async function getOrdersByPeriod(
+  restaurantId?: string,
+  period: TimePeriod = 'today'
+): Promise<any[]> {
+  const cacheKey = `orders_period:${restaurantId || 'all'}:${period}`
+  const cached = getCached<any[]>(cacheKey)
+  if (cached) return cached
+
+  let startDate: Date | null = null
+  const now = new Date()
+
+  if (period === 'today') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  } else if (period === 'week') {
+    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    startDate.setHours(0, 0, 0, 0)
+  } else if (period === 'month') {
+    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    startDate.setHours(0, 0, 0, 0)
+  }
+
+  let builder = supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (
+        id,
+        quantity,
+        unit_price,
+        product_id,
+        products (
+          name
+        )
+      )
+    `)
+    .order('created_at', { ascending: false })
+
+  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+  if (startDate) builder = builder.gte('created_at', startDate.toISOString())
+
+  const fallback = SAMPLE_HISTORICAL_ORDERS.filter((o) => {
+    if (!startDate) return true
+    return new Date(o.created_at) >= startDate
+  })
+
+  const query = builder.then(({ data, error }) => {
+    if (!error && data && (data.length > 0 || restaurantId)) {
+      return data
+    }
+    return restaurantId ? [] : fallback
+  })
+
+  const result = await withTimeout(query, 1400, restaurantId ? [] : fallback)
+  setCached(cacheKey, result, 15)
+  return result
+}
+
+export async function getGerenciaStats(
+  restaurantId?: string,
+  period: TimePeriod = 'today'
+): Promise<GerenciaStats> {
+  const orders = await getOrdersByPeriod(restaurantId, period)
+
+  const totalSales = orders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0)
+  const totalOrders = orders.length
+  const averageTicket = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0
+  const completedOrders = orders.filter((o) => o.status === 'completed').length
+  const pendingOrPreparingOrders = orders.filter(
+    (o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready'
+  ).length
+
+  // Métodos de Pago
+  let cashSales = 0
+  let cashOrdersCount = 0
+  let cardSales = 0
+  let cardOrdersCount = 0
+
+  // Tipos de Entrega
+  let deliverySales = 0
+  let deliveryOrdersCount = 0
+  let pickupSales = 0
+  let pickupOrdersCount = 0
+
+  for (const o of orders) {
+    const amt = Number(o.total_amount) || 0
+    const pm = (o.payment_method || '').toLowerCase()
+    if (pm === 'cash' || pm === 'efectivo') {
+      cashSales += amt
+      cashOrdersCount++
+    } else {
+      cardSales += amt
+      cardOrdersCount++
+    }
+
+    if (o.delivery_type === 'delivery') {
+      deliverySales += amt
+      deliveryOrdersCount++
+    } else {
+      pickupSales += amt
+      pickupOrdersCount++
+    }
+  }
+
+  // Generación de Datos Gráficos según el período
+  let chartData: HourlyOrDailyStat[] = []
+
+  if (period === 'today') {
+    // Horas de la jornada: 10:00 a 24:00 en bloques de 2 horas
+    const slots = [
+      { start: 10, end: 12, label: '10:00 - 12:00' },
+      { start: 12, end: 14, label: '12:00 - 14:00' },
+      { start: 14, end: 16, label: '14:00 - 16:00' },
+      { start: 16, end: 18, label: '16:00 - 18:00' },
+      { start: 18, end: 20, label: '18:00 - 20:00' },
+      { start: 20, end: 22, label: '20:00 - 22:00' },
+      { start: 22, end: 24, label: '22:00 - 24:00' },
+    ]
+
+    chartData = slots.map((slot) => {
+      let sales = 0
+      let count = 0
+      for (const o of orders) {
+        const d = new Date(o.created_at)
+        const hour = d.getHours()
+        if (hour >= slot.start && hour < slot.end) {
+          sales += Number(o.total_amount) || 0
+          count++
+        }
+      }
+      return {
+        label: `${slot.start}:00`,
+        fullLabel: slot.label,
+        sales,
+        orders: count,
+      }
+    })
+  } else if (period === 'week') {
+    // Últimos 7 días con nombres de días (ej: Lun 28, Mar 29, etc.)
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+    chartData = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (6 - i))
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+      const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+
+      let sales = 0
+      let count = 0
+      for (const o of orders) {
+        const od = new Date(o.created_at)
+        if (od >= dayStart && od <= dayEnd) {
+          sales += Number(o.total_amount) || 0
+          count++
+        }
+      }
+
+      const dayName = dayNames[d.getDay()]
+      const dateNum = d.getDate()
+      return {
+        label: `${dayName} ${dateNum}`,
+        fullLabel: `${dayName} ${dateNum}/${d.getMonth() + 1}`,
+        sales,
+        orders: count,
+      }
+    })
+  } else if (period === 'month') {
+    // 4 semanas del mes
+    chartData = [
+      { label: 'Sem 1', fullLabel: 'Días 1 al 7', sales: 0, orders: 0 },
+      { label: 'Sem 2', fullLabel: 'Días 8 al 14', sales: 0, orders: 0 },
+      { label: 'Sem 3', fullLabel: 'Días 15 al 21', sales: 0, orders: 0 },
+      { label: 'Sem 4', fullLabel: 'Días 22 al 30', sales: 0, orders: 0 },
+    ]
+
+    const now = new Date()
+    for (const o of orders) {
+      const od = new Date(o.created_at)
+      const daysDiff = Math.floor((now.getTime() - od.getTime()) / (24 * 60 * 60 * 1000))
+      const amt = Number(o.total_amount) || 0
+
+      if (daysDiff <= 7) {
+        chartData[3].sales += amt
+        chartData[3].orders++
+      } else if (daysDiff <= 14) {
+        chartData[2].sales += amt
+        chartData[2].orders++
+      } else if (daysDiff <= 21) {
+        chartData[1].sales += amt
+        chartData[1].orders++
+      } else if (daysDiff <= 30) {
+        chartData[0].sales += amt
+        chartData[0].orders++
+      }
+    }
+  } else {
+    // Histórico por trimestres / meses
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+    const last6Months = Array.from({ length: 6 }).map((_, i) => {
+      const d = new Date()
+      d.setMonth(d.getMonth() - (5 - i))
+      return {
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        label: `${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`,
+        sales: 0,
+        orders: 0
+      }
+    })
+
+    for (const o of orders) {
+      const od = new Date(o.created_at)
+      const match = last6Months.find(m => m.month === od.getMonth() && m.year === od.getFullYear())
+      if (match) {
+        match.sales += Number(o.total_amount) || 0
+        match.orders++
+      }
+    }
+
+    chartData = last6Months.map(m => ({
+      label: m.label,
+      fullLabel: m.label,
+      sales: m.sales,
+      orders: m.orders
+    }))
+  }
+
+  // Top Platos Vendidos en el período
+  const prodMap = new Map<string, { name: string; quantity: number; revenue: number }>()
+  for (const o of orders) {
+    if (o.order_items && Array.isArray(o.order_items)) {
+      for (const item of o.order_items) {
+        const name = item.products?.name || 'Plato del Catálogo'
+        const qty = Number(item.quantity) || 1
+        const price = Number(item.unit_price) || 0
+        const current = prodMap.get(name) || { name, quantity: 0, revenue: 0 }
+        current.quantity += qty
+        current.revenue += qty * price
+        prodMap.set(name, current)
+      }
+    }
+  }
+
+  const topProducts = Array.from(prodMap.values())
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5)
+
+  const periodLabelMap: Record<TimePeriod, string> = {
+    today: 'Jornada de Hoy (En vivo)',
+    week: 'Esta Semana (Últimos 7 días)',
+    month: 'Este Mes (Últimos 30 días)',
+    all: 'Historial General Consolidado',
+  }
+
+  return {
+    period,
+    periodLabel: periodLabelMap[period],
+    totalSales,
+    totalOrders,
+    averageTicket,
+    completedOrders,
+    pendingOrPreparingOrders,
+    cashSales,
+    cashOrdersCount,
+    cardSales,
+    cardOrdersCount,
+    deliverySales,
+    deliveryOrdersCount,
+    pickupSales,
+    pickupOrdersCount,
+    chartData,
+    topProducts,
+    orders,
+  }
+}
+
+// --- Insumos CRUD Completo ---
+
+export async function saveInventoryItem(
+  itemData: {
+    id?: string
+    name: string
+    quantity_available: number
+    unit: string
+    min_stock: number
+  },
+  restaurantId: string
+) {
+  try {
+    if (itemData.id) {
+      const { error } = await supabase
+        .from('inventory_items')
+        .update({
+          name: itemData.name.trim(),
+          quantity_available: Number(itemData.quantity_available),
+          unit: itemData.unit.trim(),
+          min_stock: Number(itemData.min_stock),
+        })
+        .eq('id', itemData.id)
+        .eq('restaurant_id', restaurantId)
+
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('inventory_items')
+        .insert({
+          restaurant_id: restaurantId,
+          name: itemData.name.trim(),
+          quantity_available: Number(itemData.quantity_available),
+          unit: itemData.unit.trim(),
+          min_stock: Number(itemData.min_stock),
+        })
+
+      if (error) throw error
+    }
+  } catch (err) {
+    console.warn('Error saving inventory item, using in-memory update:', err)
+    // Actualizar en SAMPLE_INVENTORY si estamos en fallback
+    if (itemData.id) {
+      const existing = SAMPLE_INVENTORY.find((i) => i.id === itemData.id)
+      if (existing) {
+        existing.name = itemData.name
+        existing.quantity_available = Number(itemData.quantity_available)
+        existing.unit = itemData.unit
+        existing.min_stock = Number(itemData.min_stock)
+      }
+    } else {
+      SAMPLE_INVENTORY.push({
+        id: `inv-${Date.now()}`,
+        name: itemData.name,
+        quantity_available: Number(itemData.quantity_available),
+        unit: itemData.unit,
+        min_stock: Number(itemData.min_stock),
+      })
+    }
+  }
+
+  invalidateCache('all_inventory')
+  invalidateCache('critical_inventory')
+}
+
+export async function deleteInventoryItem(itemId: string, restaurantId?: string) {
+  try {
+    let builder = supabase.from('inventory_items').delete().eq('id', itemId)
+    if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+    const { error } = await builder
+    if (error) throw error
+  } catch (err) {
+    console.warn('Error deleting inventory item:', err)
+    const idx = SAMPLE_INVENTORY.findIndex((i) => i.id === itemId)
+    if (idx !== -1) SAMPLE_INVENTORY.splice(idx, 1)
+  }
+
+  invalidateCache('all_inventory')
+  invalidateCache('critical_inventory')
 }

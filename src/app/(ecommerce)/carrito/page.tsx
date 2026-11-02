@@ -55,7 +55,7 @@ export default function CartPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              href={href('/seguimiento')}
+              href={`${href('/seguimiento')}?id=${orderDone.id}`}
               className="btn-amber text-center py-3 px-6"
             >
               Rastrear mi pedido
