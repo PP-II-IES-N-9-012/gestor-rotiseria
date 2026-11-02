@@ -3,7 +3,7 @@
 import { Clock, CheckCircle2, Loader2, Flame, ChefHat, Truck, Store, ArrowRight, RefreshCw, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getOrdersByStatus, updateOrderStatus } from '@/lib/api'
+import { getOrdersByStatus, updateOrderStatus, invalidateCache } from '@/lib/api'
 import { useAdminRestaurant } from '@/lib/AdminContext'
 
 export default function KitchenPage() {
@@ -18,6 +18,7 @@ export default function KitchenPage() {
 
   const loadOrders = async () => {
     try {
+      invalidateCache('orders')
       const data = await getOrdersByStatus(['pending', 'preparing', 'ready', 'completed'], restaurantId)
       setOrders(data || [])
     } catch (error) {
@@ -43,7 +44,13 @@ export default function KitchenPage() {
       })
       .subscribe()
 
+    // Respaldo de sincronización periódica cada 5s por si Realtime no está activo en la tabla
+    const pollInterval = setInterval(() => {
+      loadOrders()
+    }, 5000)
+
     return () => {
+      clearInterval(pollInterval)
       supabase.removeChannel(subscription)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

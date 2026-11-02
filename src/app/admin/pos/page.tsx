@@ -35,11 +35,7 @@ export default function POSPage() {
 
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [cart, setCart] = useState<CartItem[]>([
-    { id: 'prod-spiedo-01', name: 'Pollo al Spiedo al Limón y Finas Hierbas', price: 12500, quantity: 1 },
-    { id: 'prod-emp-01', name: 'Empanadas Criollas Cortadas a Cuchillo', price: 1600, quantity: 6 },
-    { id: 'prod-papas-01', name: 'Porción de Papas Fritas Rústicas a la Provenzal', price: 4900, quantity: 1 }
-  ])
+  const [cart, setCart] = useState<CartItem[]>([])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('Todas las categorías')
@@ -126,7 +122,8 @@ export default function POSPage() {
       }, cart.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
-        unit_price: item.price
+        unit_price: item.price,
+        product_name: item.name
       })), restaurantId)
       
       setSuccessOrder(newOrder)

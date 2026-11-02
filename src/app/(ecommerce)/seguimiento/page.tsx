@@ -14,25 +14,30 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-    const fetchOrder = async (idToSearch: string) => {
+    const fetchOrder = async (idToSearch: string, silent = false) => {
       const cleanId = idToSearch.trim()
       if (!cleanId) return
 
-      setLoading(true)
-      setError('')
+      if (!silent) {
+        setLoading(true)
+        setError('')
+      }
 
       try {
-        const data = await getOrderById(cleanId, restaurant?.id)
+        const data = await getOrderById(cleanId)
         if (data) {
           setOrder(data)
-        } else {
+        } else if (!silent) {
+          setOrder(null)
           setError('No se encontró ningún pedido con ese código en el sistema.')
         }
       } catch (err) {
         console.error(err)
-        setError('Código no encontrado o error de conexión. Verifica el código de tu pedido.')
+        if (!silent) {
+          setError('Código no encontrado o error de conexión. Verifica el código de tu pedido.')
+        }
       } finally {
-        setLoading(false)
+        if (!silent) setLoading(false)
       }
     }
 
@@ -47,9 +52,9 @@ export default function TrackingPage() {
         }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [restaurant?.id])
+    }, [])
 
-    // Realtime subscription to order status updates
+    // Realtime subscription + periodic polling to order status updates
     useEffect(() => {
       if (!order?.id) return
 
@@ -67,9 +72,15 @@ export default function TrackingPage() {
         })
         .subscribe()
 
+      const pollTimer = setInterval(() => {
+        fetchOrder(order.id, true)
+      }, 5000)
+
       return () => {
+        clearInterval(pollTimer)
         supabase.removeChannel(channel)
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [order?.id])
 
     const handleSearch = (e: React.FormEvent) => {

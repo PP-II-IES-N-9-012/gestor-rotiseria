@@ -933,6 +933,42 @@ export async function deductInventoryForItems(
 // Respaldo en memoria para órdenes e inventario creados en modo demo o con productos de muestra
 const inMemoryCreatedOrders: any[] = []
 
+function generateOrderUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+function saveRecentOrderLocal(order: any) {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem('comandapp_recent_orders')
+    const list: any[] = raw ? JSON.parse(raw) : []
+    const filtered = list.filter((o) => o && o.id !== order.id)
+    filtered.unshift(order)
+    window.localStorage.setItem('comandapp_recent_orders', JSON.stringify(filtered.slice(0, 25)))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function getRecentOrderLocal(orderId: string): any | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem('comandapp_recent_orders')
+    if (!raw) return null
+    const list: any[] = JSON.parse(raw)
+    return list.find((o) => o && o.id === orderId) || null
+  } catch {
+    return null
+  }
+}
+
 // --- Orders (Public & Admin) ---
 export async function createOrder(
   order: {
@@ -965,28 +1001,38 @@ export async function createOrder(
     finalNotes = finalNotes ? `${finalNotes} | Ítems: ${fallbackSummary}` : `Ítems: ${fallbackSummary}`
   }
 
-  let createdOrder: any = null
+  const generatedId = generateOrderUuid()
+  const nowIso = new Date().toISOString()
+  let createdOrder: any = {
+    id: generatedId,
+    restaurant_id: id,
+    ...order,
+    notes: finalNotes || undefined,
+    status: order.status || 'pending',
+    created_at: nowIso
+  }
 
   try {
-    const { data: newOrder, error: orderError } = await supabase
+    // Insertamos pasando el UUID generado sin encadenar .select().single()
+    // para que no falle por RLS SELECT cuando el comprador es público (anónimo).
+    const { error: orderError } = await supabase
       .from('orders')
       .insert({
+        id: generatedId,
         ...order,
+        status: order.status || 'pending',
         notes: finalNotes || undefined,
         restaurant_id: id
       })
-      .select()
-      .single()
 
     if (orderError) throw orderError
-    createdOrder = newOrder
 
     if (uuidItems.length > 0) {
       const orderItems = uuidItems.map((item) => ({
         product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
-        order_id: newOrder.id
+        order_id: generatedId
       }))
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
@@ -996,17 +1042,9 @@ export async function createOrder(
     }
   } catch (dbErr) {
     console.warn('Fallback order creation in memory:', dbErr)
-    createdOrder = {
-      id: `ord-${Math.random().toString(36).substring(2, 8)}`,
-      restaurant_id: id,
-      ...order,
-      notes: finalNotes || undefined,
-      status: order.status || 'pending',
-      created_at: new Date().toISOString()
-    }
   }
 
-  // Guardar representación rica con nombres de productos para visualización inmediata en Cocina / KPIs
+  // Guardar representación rica con nombres de productos para visualización inmediata en Cocina / Seguimiento / KPIs
   const enrichedOrder = {
     ...createdOrder,
     order_items: items.map((i) => {
@@ -1023,6 +1061,7 @@ export async function createOrder(
   }
 
   inMemoryCreatedOrders.unshift(enrichedOrder)
+  saveRecentOrderLocal(enrichedOrder)
 
   // Descontar automáticamente del inventario según las recetas de los productos
   if (uuidItems.length > 0) {
@@ -1035,53 +1074,76 @@ export async function createOrder(
 
   invalidateCache('orders')
   invalidateCache('today_orders')
+  invalidateCache('orders_period')
 
   return enrichedOrder
 }
 
 // Para seguimiento público
 export async function getOrderById(orderId: string, restaurantId?: string) {
-  const id = restaurantId || (await getPublicTenantId())
+  const cleanId = orderId.trim()
+  const memMatch =
+    inMemoryCreatedOrders.find((o) => o.id === cleanId) ||
+    getRecentOrderLocal(cleanId)
 
-  const query = supabase
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(cleanId)) {
+    return memMatch || null
+  }
+
+  let builder = supabase
     .from('orders')
     .select(`
       *,
       order_items (
         quantity,
+        unit_price,
         product_id,
         products (
           name
         )
       )
     `)
-    .eq('id', orderId)
-    .eq('restaurant_id', id)
-    .maybeSingle()
-    .then(({ data, error }) => {
-      if (!error && data) return data
-      return null
-    })
+    .eq('id', cleanId)
 
-  const fallback = {
-    id: orderId || 'b326adf8-3a44-4736-bf3e-06e1e6bba946',
-    restaurant_id: id,
-    guest_name: 'Carlos Mendoza',
-    guest_phone: '+54 9 11 5566-7788',
-    delivery_type: 'delivery',
-    guest_address: 'Av. San Martín 1420, Piso 4 Depto B',
-    status: 'preparing',
-    total_amount: 19700,
-    created_at: new Date(Date.now() - 15 * 60000).toISOString(),
-    notes: 'Por favor entregar con pan casero y salsa criolla extra.',
-    order_items: [
-      { quantity: 1, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } },
-      { quantity: 6, unit_price: 8000, products: { name: 'Empanadas Caseras Criollas a Cuchillo' } },
-      { quantity: 1, unit_price: 4900, products: { name: 'Porción de Papas Fritas Rústicas a la Provenzal' } }
-    ]
+  if (restaurantId) {
+    builder = builder.eq('restaurant_id', restaurantId)
   }
 
-  const result = await withTimeout(query, 1200, fallback)
+  const query = builder.maybeSingle().then(({ data, error }) => {
+    if (!error && data) {
+      if ((!data.order_items || data.order_items.length === 0) && memMatch?.order_items) {
+        return { ...data, order_items: memMatch.order_items }
+      }
+      return data
+    }
+    return null
+  })
+
+  // Solo usar orden de demostración si se consulta explícitamente el ID de ejemplo de la documentación
+  const demoFallback =
+    cleanId === FALLBACK_RESTAURANT.id
+      ? {
+          id: FALLBACK_RESTAURANT.id,
+          restaurant_id: restaurantId || FALLBACK_RESTAURANT.id,
+          guest_name: 'Carlos Mendoza',
+          guest_phone: '+54 9 11 5566-7788',
+          delivery_type: 'delivery',
+          guest_address: 'Av. San Martín 1420, Piso 4 Depto B',
+          status: 'preparing',
+          total_amount: 19700,
+          created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+          notes: 'Por favor entregar con pan casero y salsa criolla extra.',
+          order_items: [
+            { quantity: 1, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } },
+            { quantity: 6, unit_price: 8000, products: { name: 'Empanadas Caseras Criollas a Cuchillo' } },
+            { quantity: 1, unit_price: 4900, products: { name: 'Porción de Papas Fritas Rústicas a la Provenzal' } }
+          ]
+        }
+      : null
+
+  const fallback = memMatch || demoFallback
+  const result = await withTimeout(query, 4000, fallback)
   return result || fallback
 }
 
@@ -1173,21 +1235,25 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
   const query = builder
     .order('created_at', { ascending: true })
     .then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
-        return data.map((dbOrder: any) => {
+      if (!error && data && (data.length > 0 || restaurantId)) {
+        const dbList = data.map((dbOrder: any) => {
           const mem = inMemoryCreatedOrders.find((m) => m.id === dbOrder.id)
           if (mem && (!dbOrder.order_items || dbOrder.order_items.length === 0)) {
             return { ...dbOrder, order_items: mem.order_items }
           }
           return dbOrder
         })
+        const missingMem = memMatches.filter((m) => !dbList.some((d: any) => d.id === m.id))
+        return [...missingMem, ...dbList]
       }
       return [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
     })
 
-  const fallback = [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
-  const result = await withTimeout(query, 1200, fallback)
-  setCached(cacheKey, result, 10)
+  const fallback = restaurantId
+    ? memMatches
+    : [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
+  const result = await withTimeout(query, 4000, fallback)
+  setCached(cacheKey, result, 5)
   return result
 }
 
@@ -1195,6 +1261,10 @@ export async function updateOrderStatus(orderId: string, status: string) {
   const memOrder = inMemoryCreatedOrders.find((o) => o.id === orderId)
   if (memOrder) {
     memOrder.status = status
+  }
+  const localOrder = getRecentOrderLocal(orderId)
+  if (localOrder) {
+    saveRecentOrderLocal({ ...localOrder, status })
   }
   try {
     const { error } = await supabase
@@ -1208,6 +1278,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
   }
   invalidateCache('orders')
   invalidateCache('today_orders')
+  invalidateCache('orders_period')
 }
 
 export async function getTodayOrders(restaurantId?: string) {

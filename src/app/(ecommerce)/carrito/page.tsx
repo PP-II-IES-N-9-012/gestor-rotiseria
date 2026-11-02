@@ -50,7 +50,7 @@ export default function CartPage() {
             <p><strong className="text-white">Cliente:</strong> {formData.name}</p>
             <p><strong className="text-white">Modalidad:</strong> {formData.deliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}</p>
             {formData.deliveryType === 'delivery' && <p><strong className="text-white">Dirección:</strong> {formData.address}</p>}
-            <p><strong className="text-white">Total a abonar:</strong> ${total().toLocaleString()}</p>
+            <p><strong className="text-white">Total a abonar:</strong> ${Number(orderDone.total_amount || 0).toLocaleString()}</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
