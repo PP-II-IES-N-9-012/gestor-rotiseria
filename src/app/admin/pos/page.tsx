@@ -25,6 +25,7 @@ interface CartItem {
   name: string
   price: number
   quantity: number
+  image_url?: string
 }
 
 export default function POSPage() {
@@ -70,7 +71,7 @@ export default function POSPage() {
       if (existing) {
         return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
       }
-      return [...prev, { id: product.id, name: product.name, price: Number(product.price), quantity: 1 }]
+      return [...prev, { id: product.id, name: product.name, price: Number(product.price), quantity: 1, image_url: product.image_url }]
     })
   }
 
@@ -198,7 +199,7 @@ export default function POSPage() {
                 <button 
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className="p-3.5 rounded-2xl text-left transition-all active:scale-95 flex flex-col justify-between aspect-square border shadow-md group relative overflow-hidden"
+                  className="rounded-2xl text-left transition-all active:scale-95 flex flex-col justify-between border shadow-md group relative overflow-hidden"
                   style={{
                     backgroundColor: 'var(--store-card-bg, rgba(30, 41, 59, 0.5))',
                     borderColor: `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, rgba(255, 255, 255, 0.08)))`
@@ -206,19 +207,50 @@ export default function POSPage() {
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = `${primaryColor}60`}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, rgba(255, 255, 255, 0.08)))`}
                 >
-                  <span className="font-semibold text-xs sm:text-sm text-white group-hover:brightness-110 line-clamp-3">
-                    {p.name}
-                  </span>
-                  <div className="mt-2 flex items-center justify-between w-full">
-                    <span className="font-bold font-rustic text-sm sm:text-base" style={{ color: primaryColor }}>
-                      ${Number(p.price).toLocaleString('es-AR')}
+                  <div 
+                    className="relative h-28 sm:h-32 w-full overflow-hidden border-b"
+                    style={{
+                      backgroundColor: 'var(--store-subtle-bg, #181310)',
+                      borderColor: 'var(--store-border, rgba(255, 255, 255, 0.06))'
+                    }}
+                  >
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.image_url}
+                        alt={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 opacity-40">
+                        <Utensils className="w-6 h-6" style={{ color: primaryColor }} />
+                        <span className="text-[10px] text-[color:var(--store-text-muted)]">Sin foto</span>
+                      </div>
+                    )}
+                    {p.category && (
+                      <span 
+                        className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-md backdrop-blur-md bg-black/65 text-white/90 border border-white/10 truncate max-w-[85%]"
+                      >
+                        {p.category}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-3 flex-1 flex flex-col justify-between w-full">
+                    <span className="font-semibold text-xs sm:text-sm text-white group-hover:brightness-110 line-clamp-2">
+                      {p.name}
                     </span>
-                    <span 
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-transform group-hover:scale-110"
-                      style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
-                    >
-                      +
-                    </span>
+                    <div className="mt-2.5 flex items-center justify-between w-full">
+                      <span className="font-bold font-rustic text-sm sm:text-base" style={{ color: primaryColor }}>
+                        ${Number(p.price).toLocaleString('es-AR')}
+                      </span>
+                      <span 
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-transform group-hover:scale-110 shrink-0"
+                        style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                      >
+                        +
+                      </span>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -336,8 +368,20 @@ export default function POSPage() {
             cart.map(item => (
               <div 
                 key={item.id} 
-                className="p-2.5 rounded-xl bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] flex items-center justify-between gap-2 text-xs"
+                className="p-2.5 rounded-xl bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] flex items-center justify-between gap-2.5 text-xs"
               >
+                {item.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    className="w-10 h-10 rounded-lg object-cover border border-white/10 shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center shrink-0">
+                    <Utensils className="w-4 h-4 opacity-40" style={{ color: primaryColor }} />
+                  </div>
+                )}
                 <div className="flex-1 overflow-hidden">
                   <p className="font-semibold text-white truncate">{item.name}</p>
                   <p className="text-[11px] text-[color:var(--store-text-muted)]">
