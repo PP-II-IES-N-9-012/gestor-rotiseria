@@ -18,6 +18,7 @@ import {
   type RestaurantInfo, 
   type ProductItem 
 } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 
 interface StoreFrontClientProps {
   initialRestaurant: RestaurantInfo
@@ -69,10 +70,25 @@ export default function StoreFrontClient({
     window.addEventListener('comandapp-branding-updated', handleUpdate)
     window.addEventListener('storage', handleUpdate)
 
+    const channel = supabase
+      .channel(`storefront-sync-${initialRestaurant.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'restaurants' },
+        () => handleUpdate()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => handleUpdate()
+      )
+      .subscribe()
+
     return () => {
       cancelled = true
       window.removeEventListener('comandapp-branding-updated', handleUpdate)
       window.removeEventListener('storage', handleUpdate)
+      supabase.removeChannel(channel)
     }
   }, [initialRestaurant])
 

@@ -549,31 +549,41 @@ export async function getPublicTenantId() {
   return tenantId
 }
 
-// Helper para fusionar branding personalizado (memoria + localStorage en cliente)
+// Helper para fusionar únicamente campos cuya columna aún no exista en Supabase (sin pisar datos reales de la BDD)
 export function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
-  let merged: RestaurantInfo = { ...rest }
+  const merged: Record<string, any> = { ...rest }
   if (typeof window !== 'undefined') {
     try {
-      const bySub = rest.subdomain ? window.localStorage.getItem(`comandapp_branding_${rest.subdomain.toLowerCase()}`) : null
-      const byId = rest.id ? window.localStorage.getItem(`comandapp_branding_${rest.id.toLowerCase()}`) : null
-      const latest = window.localStorage.getItem('comandapp_branding_latest')
-      if (latest) {
-        const parsedLatest = JSON.parse(latest)
-        if (parsedLatest && (parsedLatest.id === rest.id || parsedLatest.subdomain === rest.subdomain || !rest.subdomain)) {
-          merged = { ...merged, ...parsedLatest }
+      // Limpiar llaves antiguas de localStorage que antes pisaban los datos compartidos de Supabase
+      window.localStorage.removeItem('comandapp_branding_latest')
+      if (rest.id) window.localStorage.removeItem(`comandapp_branding_${rest.id.toLowerCase()}`)
+      if (rest.subdomain) window.localStorage.removeItem(`comandapp_branding_${rest.subdomain.toLowerCase()}`)
+
+      // Solo aplicar respaldo local para columnas que aún sean undefined en la respuesta de Supabase
+      const rawUnmigrated = rest.id
+        ? window.localStorage.getItem(`comandapp_unmigrated_${rest.id.toLowerCase()}`)
+        : null
+      if (rawUnmigrated) {
+        const unmigrated = JSON.parse(rawUnmigrated)
+        for (const [k, v] of Object.entries(unmigrated)) {
+          if (merged[k] === undefined) {
+            merged[k] = v
+          }
         }
       }
-      if (bySub) merged = { ...merged, ...JSON.parse(bySub) }
-      if (byId) merged = { ...merged, ...JSON.parse(byId) }
     } catch {
       // Ignore localStorage parse errors
     }
   }
   const custom = inMemoryRestaurantBranding.get(rest.id) || (rest.subdomain ? inMemoryRestaurantBranding.get(rest.subdomain.toLowerCase()) : undefined)
   if (custom) {
-    merged = { ...merged, ...custom }
+    for (const [k, v] of Object.entries(custom)) {
+      if (merged[k] === undefined) {
+        merged[k] = v
+      }
+    }
   }
-  return merged
+  return merged as RestaurantInfo
 }
 
 // Obtener restaurante por subdominio o ID
@@ -595,9 +605,9 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
       .maybeSingle()
       .then(({ data }) => data || FALLBACK_RESTAURANT)
 
-    const result = await withTimeout(query, 1200, FALLBACK_RESTAURANT)
+    const result = await withTimeout(query, 4000, FALLBACK_RESTAURANT)
     const merged = mergeBranding(result)
-    setCached(cacheKey, merged, 60)
+    setCached(cacheKey, merged, 15)
     return merged
   }
 
@@ -631,9 +641,9 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
     subdomain: idOrSubdomain
   }
 
-  const result = await withTimeout(query, 1200, fallback)
+  const result = await withTimeout(query, 4000, fallback)
   const merged = mergeBranding(result)
-  setCached(cacheKey, merged, 60)
+  setCached(cacheKey, merged, 15)
   return merged
 }
 
@@ -656,45 +666,26 @@ export async function getRestaurantStrict(subdomain: string): Promise<Restaurant
     return res ? mergeBranding(res) : null
   })
 
-  const result = await withTimeout<RestaurantInfo | null>(query, 3000, sampleMatch)
+  const result = await withTimeout<RestaurantInfo | null>(query, 4000, sampleMatch)
   const merged = result ? mergeBranding(result) : null
-  if (merged) setCached(cacheKey, merged, 60)
+  if (merged) setCached(cacheKey, merged, 15)
   return merged
 }
 
-// Guarda la configuración completa y branding de un restaurante
+// Guarda la configuración completa y branding de un restaurante en Supabase (fuente de verdad compartida)
 export async function updateRestaurantBranding(
   restaurantId: string,
   data: Partial<RestaurantInfo>
 ) {
-  // 1. Guardar en respaldo en memoria y localStorage de inmediato para reactividad total
-  const current = inMemoryRestaurantBranding.get(restaurantId) || {}
-  const mergedData = { ...current, ...data, id: restaurantId }
-  inMemoryRestaurantBranding.set(restaurantId, mergedData)
-  if (data.subdomain) {
-    inMemoryRestaurantBranding.set(data.subdomain.toLowerCase(), mergedData)
-  }
-
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(`comandapp_branding_${restaurantId.toLowerCase()}`, JSON.stringify(mergedData))
-      if (data.subdomain) {
-        window.localStorage.setItem(`comandapp_branding_${data.subdomain.toLowerCase()}`, JSON.stringify(mergedData))
-      }
-      window.localStorage.setItem('comandapp_branding_latest', JSON.stringify(mergedData))
-    } catch (e) {
-      console.warn('Could not save branding to localStorage:', e)
-    }
-  }
-
-  // 2. Intentar persistir todos los campos soportados en Supabase
   const payload: Record<string, any> = { ...data }
   delete payload.id
   delete payload.subdomain // Subdominio es de solo lectura tras creación
 
+  const unmigratedFields: Record<string, any> = {}
+
   try {
     let attempts = 0
-    while (Object.keys(payload).length > 0 && attempts < 15) {
+    while (Object.keys(payload).length > 0 && attempts < 60) {
       attempts++
       const { error } = await supabase
         .from('restaurants')
@@ -703,10 +694,11 @@ export async function updateRestaurantBranding(
 
       if (!error) break
 
-      // Si PostgREST indica que una columna aún no fue migrada en la tabla restaurants, la quitamos y reintentamos con el resto
+      // Si PostgREST indica que una columna aún no fue migrada en la tabla restaurants, la separamos y reintentamos con el resto
       const match = error.message?.match(/Could not find the '([^']+)' column|column "([^"]+)" of relation/i)
       const missingCol = match?.[1] || match?.[2]
       if (missingCol && missingCol in payload) {
+        unmigratedFields[missingCol] = payload[missingCol]
         delete payload[missingCol]
         continue
       }
@@ -726,10 +718,30 @@ export async function updateRestaurantBranding(
     console.warn('DB update error for restaurant branding:', err)
   }
 
+  // Guardar en memoria/localStorage ÚNICAMENTE las columnas que no existan aún en la tabla de Supabase
+  if (Object.keys(unmigratedFields).length > 0) {
+    const prev = inMemoryRestaurantBranding.get(restaurantId) || {}
+    const nextUnmigrated = { ...prev, ...unmigratedFields }
+    inMemoryRestaurantBranding.set(restaurantId, nextUnmigrated)
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(`comandapp_unmigrated_${restaurantId.toLowerCase()}`, JSON.stringify(nextUnmigrated))
+      } catch {}
+    }
+  } else {
+    inMemoryRestaurantBranding.delete(restaurantId)
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(`comandapp_unmigrated_${restaurantId.toLowerCase()}`)
+      } catch {}
+    }
+  }
+
   invalidateCache('restaurant')
   invalidateCache('restaurant_strict')
   invalidateCache('all_restaurants')
 
+  const mergedData = { ...data, id: restaurantId }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('comandapp-branding-updated', { detail: mergedData }))
   }
@@ -783,7 +795,27 @@ function setStoredProductBadge(productId: string, badge: string) {
   }
 }
 
+function clearStoredProductBadge(productId: string) {
+  inMemoryProductBadges.delete(productId)
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('comandapp_product_badges')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && productId in parsed) {
+          delete parsed[productId]
+          window.localStorage.setItem('comandapp_product_badges', JSON.stringify(parsed))
+        }
+      }
+    } catch {}
+  }
+}
+
 function enrichProductWithBadge<T extends { id: string; badge?: string }>(p: T): T {
+  // Si la columna badge ya viene desde Supabase, usar siempre el valor real de la base de datos
+  if (p.badge !== undefined && p.badge !== null) {
+    return p
+  }
   const localBadge = getStoredProductBadge(p.id)
   if (localBadge !== undefined) {
     return { ...p, badge: localBadge }
@@ -818,8 +850,8 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
     return ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge)
   })()
 
-  const result = await withTimeout(query, 1200, ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge))
-  setCached(cacheKey, result, 60)
+  const result = await withTimeout(query, 4000, ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge))
+  setCached(cacheKey, result, 15)
   return result
 }
 
@@ -913,8 +945,8 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
   })
 
   const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
-  const result = await withTimeout(query, 1500, fallback)
-  setCached(cacheKey, result, 30)
+  const result = await withTimeout(query, 4000, fallback)
+  setCached(cacheKey, result, 15)
   return result
 }
 
@@ -938,6 +970,7 @@ export async function saveProduct(
 
   let productId = productData.id
   const badgeVal = productData.badge !== undefined ? productData.badge.trim() : ''
+  let badgeSavedInDb = true
 
   const basePayload: Record<string, any> = {
     name: productData.name,
@@ -959,6 +992,7 @@ export async function saveProduct(
       .eq('restaurant_id', restaurantId)
 
     if (error && /badge/i.test(error.message || '')) {
+      badgeSavedInDb = false
       const { badge: _omit, ...withoutBadge } = basePayload
       const retry = await supabase
         .from('products')
@@ -979,6 +1013,7 @@ export async function saveProduct(
       .single()
 
     if (error && /badge/i.test(error.message || '')) {
+      badgeSavedInDb = false
       const { badge: _omit, ...withoutBadge } = insertPayload
       const retry = await supabase
         .from('products')
@@ -993,9 +1028,13 @@ export async function saveProduct(
     productId = newProd.id
   }
 
-  // Guardar etiqueta y receta en respaldo local/memoria
+  // Si la columna badge existe en la BDD, limpiamos localStorage para no pisar cambios de otros usuarios
   if (productId) {
-    setStoredProductBadge(productId, badgeVal)
+    if (badgeSavedInDb) {
+      clearStoredProductBadge(productId)
+    } else {
+      setStoredProductBadge(productId, badgeVal)
+    }
     inMemoryRecipes.set(productId, recipe)
   }
 

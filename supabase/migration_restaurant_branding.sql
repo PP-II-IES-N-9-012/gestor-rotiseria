@@ -1,5 +1,6 @@
 -- =================================================================================
--- MIGRACIÓN COMPLETA: Personalización Profunda de Tienda (Branding, Horarios Automáticos y Etiquetas)
+-- MIGRACIÓN COMPLETA Y SINCRONIZACIÓN MULTI-USUARIO:
+-- Personalización de Tienda, Horarios Automáticos, Etiquetas y Políticas RLS
 -- Ejecutar en Supabase -> SQL Editor -> New Query -> Run
 -- =================================================================================
 
@@ -47,23 +48,46 @@ ADD COLUMN IF NOT EXISTS schedule_close_time_2 TEXT DEFAULT '15:00',
 ADD COLUMN IF NOT EXISTS schedule_days TEXT DEFAULT '0,2,3,4,5,6',
 ADD COLUMN IF NOT EXISTS show_product_badges BOOLEAN DEFAULT true;
 
--- 1b. Agregar columna de etiqueta promocional a los productos ("🔥 Más pedido", "✨ ¡Nuevo!", "🏷️ Oferta", o vacío para ocultar)
+-- 2. Agregar columna de etiqueta promocional a los productos ("🔥 Más pedido", "✨ ¡Nuevo!", "🏷️ Oferta", o vacío para ocultar)
 ALTER TABLE public.products
 ADD COLUMN IF NOT EXISTS badge TEXT DEFAULT '';
 
--- 2. Asegurar que las políticas RLS permitan actualizar estas columnas por parte del administrador
-DROP POLICY IF EXISTS "Users can update their own restaurant" ON public.restaurants;
-CREATE POLICY "Users can update their own restaurant" 
-ON public.restaurants FOR UPDATE 
-USING (id = (SELECT restaurant_id FROM public.profiles WHERE id = auth.uid()));
-
--- 3. Los clientes públicos pueden leer todas las columnas de la tienda
+-- 3. Políticas RLS para que TODOS los administradores/colaboradores vean y guarden cambios en la BDD compartida
 DROP POLICY IF EXISTS "Public can read restaurants" ON public.restaurants;
 CREATE POLICY "Public can read restaurants" 
 ON public.restaurants FOR SELECT 
 USING (true);
 
--- 4. (Opcional pero Recomendado) Crear Bucket público de Storage para Logos y Banners
+DROP POLICY IF EXISTS "Users can update their own restaurant" ON public.restaurants;
+DROP POLICY IF EXISTS "Allow update restaurants" ON public.restaurants;
+CREATE POLICY "Allow update restaurants" 
+ON public.restaurants FOR UPDATE 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public can read products" ON public.products;
+CREATE POLICY "Public can read products" 
+ON public.products FOR SELECT 
+USING (true);
+
+DROP POLICY IF EXISTS "Allow manage products" ON public.products;
+CREATE POLICY "Allow manage products" 
+ON public.products FOR ALL 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow manage inventory_items" ON public.inventory_items;
+CREATE POLICY "Allow manage inventory_items" 
+ON public.inventory_items FOR ALL 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow read profiles" ON public.profiles;
+CREATE POLICY "Allow read profiles" 
+ON public.profiles FOR SELECT 
+USING (true);
+
+-- 4. Bucket público de Storage para Logos, Banners y Fotos de Productos
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('restaurant-media', 'restaurant-media', true)
 ON CONFLICT (id) DO NOTHING;

@@ -26,9 +26,11 @@ import {
   toggleProductAvailability, 
   getAllInventory,
   uploadRestaurantMedia,
+  invalidateCache,
   type ProductItem 
 } from '@/lib/api'
 import { useAdminRestaurant } from '@/lib/AdminContext'
+import { supabase } from '@/lib/supabase'
 
 interface RecipeRow {
   inventory_item_id: string
@@ -116,6 +118,23 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     loadData()
+    if (!restaurantId) return
+    const channel = supabase
+      .channel(`admin-products-sync-${restaurantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          invalidateCache('admin_products')
+          invalidateCache('products')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId])
 

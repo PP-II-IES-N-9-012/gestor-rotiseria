@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
+import { getRestaurant, getRestaurantStrict, invalidateCache, type RestaurantInfo } from '@/lib/api'
 import { 
   AdminRestaurantContext, 
   AdminSetRestaurantContext,
@@ -172,6 +172,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       subscription.unsubscribe()
     }
   }, [router])
+
+  // Sincronización en tiempo real del restaurante entre distintos dispositivos/usuarios
+  useEffect(() => {
+    if (!restaurant?.id) return
+    const channel = supabase
+      .channel(`admin-restaurant-sync-${restaurant.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'restaurants', filter: `id=eq.${restaurant.id}` },
+        async () => {
+          invalidateCache('restaurant')
+          invalidateCache('restaurant_strict')
+          const fresh = await getRestaurant(restaurant.id)
+          if (fresh) setRestaurant(fresh)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [restaurant?.id])
 
   // Route Guard: Bloqueo de rutas en tiempo real según rol
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { getRestaurant, getRestaurantStrict, mergeBranding, invalidateCache, type RestaurantInfo } from '@/lib/api'
 import { getClientTenant, tenantPath } from '@/lib/tenant'
+import { supabase } from '@/lib/supabase'
 
 /**
  * Resuelve el comercio de la tienda pública en el cliente (subdominio,
@@ -46,10 +47,20 @@ export function useStoreTenant() {
     window.addEventListener('comandapp-branding-updated', handleBrandingUpdate)
     window.addEventListener('storage', handleBrandingUpdate)
 
+    const channel = supabase
+      .channel(`store-tenant-sync-${slug || 'default'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'restaurants' },
+        () => handleBrandingUpdate()
+      )
+      .subscribe()
+
     return () => {
       cancelled = true
       window.removeEventListener('comandapp-branding-updated', handleBrandingUpdate)
       window.removeEventListener('storage', handleBrandingUpdate)
+      supabase.removeChannel(channel)
     }
   }, [pathname])
 
