@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { emitRealtimeStoreEvent } from './realtime'
 
 export interface RestaurantInfo {
   id: string
@@ -928,10 +929,93 @@ export async function deductInventoryForItems(
 
   invalidateCache('all_inventory')
   invalidateCache('critical_inventory')
+  void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
 }
 
-// Respaldo en memoria para órdenes e inventario creados en modo demo o con productos de muestra
+// Respaldo en memoria y localStorage para órdenes creadas en modo demo o con productos de muestra
 const inMemoryCreatedOrders: any[] = []
+const RECENT_ORDERS_STORAGE_KEY = 'comandapp_recent_orders_v1'
+
+function getRecentLocalOrders(): any[] {
+  if (typeof window === 'undefined') return inMemoryCreatedOrders
+  try {
+    const raw = window.localStorage.getItem(RECENT_ORDERS_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(parsed)) return inMemoryCreatedOrders
+    const byId = new Map<string, any>()
+    for (const o of [...inMemoryCreatedOrders, ...parsed]) {
+      if (o?.id && !byId.has(o.id)) byId.set(o.id, o)
+    }
+    return Array.from(byId.values())
+  } catch {
+    return inMemoryCreatedOrders
+  }
+}
+
+function saveRecentLocalOrder(orderObj: any) {
+  if (typeof window === 'undefined') return
+  try {
+    const existing = getRecentLocalOrders().filter((o) => o.id !== orderObj.id)
+    const updated = [orderObj, ...existing].slice(0, 50)
+    window.localStorage.setItem(RECENT_ORDERS_STORAGE_KEY, JSON.stringify(updated))
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function updateRecentLocalOrderStatus(orderId: string, status: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const list = getRecentLocalOrders()
+    let changed = false
+    const updated = list.map((o) => {
+      if (o.id === orderId) {
+        changed = true
+        return { ...o, status }
+      }
+      return o
+    })
+    if (changed) {
+      window.localStorage.setItem(RECENT_ORDERS_STORAGE_KEY, JSON.stringify(updated))
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function enrichOrderItemsFallback(dbOrder: any, recentPool: any[]): any {
+  if (dbOrder.order_items && dbOrder.order_items.length > 0) {
+    return dbOrder
+  }
+  const match = recentPool.find((m) => m.id === dbOrder.id)
+  if (match?.order_items && match.order_items.length > 0) {
+    return { ...dbOrder, order_items: match.order_items }
+  }
+  if (typeof dbOrder.notes === 'string' && dbOrder.notes.includes('Ítems:')) {
+    const itemsPart = dbOrder.notes.split('Ítems:')[1]?.trim()
+    if (itemsPart) {
+      const parsedItems = itemsPart
+        .split(',')
+        .map((chunk: string) => {
+          const m = chunk.trim().match(/^(\d+)x\s+(.+)$/)
+          if (!m) return null
+          const qty = Number(m[1]) || 1
+          const name = m[2].trim()
+          const sampleProd = ARTISANAL_FALLBACK_PRODUCTS.find((p) => p.name === name)
+          return {
+            quantity: qty,
+            unit_price: sampleProd?.price || 0,
+            products: { name }
+          }
+        })
+        .filter(Boolean)
+      if (parsedItems.length > 0) {
+        return { ...dbOrder, order_items: parsedItems }
+      }
+    }
+  }
+  return dbOrder
+}
 
 // --- Orders (Public & Admin) ---
 export async function createOrder(
@@ -966,6 +1050,7 @@ export async function createOrder(
   }
 
   let createdOrder: any = null
+  let isFallbackOnly = false
 
   try {
     const { data: newOrder, error: orderError } = await supabase
@@ -996,6 +1081,7 @@ export async function createOrder(
     }
   } catch (dbErr) {
     console.warn('Fallback order creation in memory:', dbErr)
+    isFallbackOnly = true
     createdOrder = {
       id: `ord-${Math.random().toString(36).substring(2, 8)}`,
       restaurant_id: id,
@@ -1009,6 +1095,7 @@ export async function createOrder(
   // Guardar representación rica con nombres de productos para visualización inmediata en Cocina / KPIs
   const enrichedOrder = {
     ...createdOrder,
+    _fallbackOnly: isFallbackOnly,
     order_items: items.map((i) => {
       const found = ARTISANAL_FALLBACK_PRODUCTS.find((p) => p.id === i.product_id)
       return {
@@ -1023,6 +1110,7 @@ export async function createOrder(
   }
 
   inMemoryCreatedOrders.unshift(enrichedOrder)
+  saveRecentLocalOrder(enrichedOrder)
 
   // Descontar automáticamente del inventario según las recetas de los productos
   if (uuidItems.length > 0) {
@@ -1035,6 +1123,18 @@ export async function createOrder(
 
   invalidateCache('orders')
   invalidateCache('today_orders')
+  invalidateCache('critical_inventory')
+  invalidateCache('all_inventory')
+
+  // Emitir evento en vivo por WebSocket / Broadcast para actualizar Gerencia y Cocina sin recargar
+  void emitRealtimeStoreEvent({
+    type: 'new_order',
+    restaurantId: id,
+    orderId: enrichedOrder.id,
+    totalAmount: Number(enrichedOrder.total_amount || 0),
+    guestName: enrichedOrder.guest_name,
+    status: enrichedOrder.status || 'pending'
+  })
 
   return enrichedOrder
 }
@@ -1166,7 +1266,8 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
     .in('status', statuses)
   if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
 
-  const memMatches = inMemoryCreatedOrders.filter(
+  const recentPool = getRecentLocalOrders()
+  const memMatches = recentPool.filter(
     (o) => statuses.includes(o.status) && (!restaurantId || o.restaurant_id === restaurantId)
   )
 
@@ -1174,19 +1275,16 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
     .order('created_at', { ascending: true })
     .then(({ data, error }) => {
       if (!error && data && data.length > 0) {
-        return data.map((dbOrder: any) => {
-          const mem = inMemoryCreatedOrders.find((m) => m.id === dbOrder.id)
-          if (mem && (!dbOrder.order_items || dbOrder.order_items.length === 0)) {
-            return { ...dbOrder, order_items: mem.order_items }
-          }
-          return dbOrder
-        })
+        const enriched = data.map((dbOrder: any) => enrichOrderItemsFallback(dbOrder, recentPool))
+        const dbIds = new Set(enriched.map((o: any) => o.id))
+        const localOnly = memMatches.filter((m) => m._fallbackOnly && !dbIds.has(m.id))
+        return [...enriched, ...localOnly]
       }
       return [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
     })
 
   const fallback = [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
-  const result = await withTimeout(query, 1200, fallback)
+  const result = await withTimeout(query, 2500, fallback)
   setCached(cacheKey, result, 10)
   return result
 }
@@ -1196,6 +1294,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
   if (memOrder) {
     memOrder.status = status
   }
+  updateRecentLocalOrderStatus(orderId, status)
   try {
     const { error } = await supabase
       .from('orders')
@@ -1208,6 +1307,11 @@ export async function updateOrderStatus(orderId: string, status: string) {
   }
   invalidateCache('orders')
   invalidateCache('today_orders')
+  void emitRealtimeStoreEvent({
+    type: 'order_status',
+    orderId,
+    status
+  })
 }
 
 export async function getTodayOrders(restaurantId?: string) {
@@ -1293,6 +1397,7 @@ export async function refillInventory(itemId: string, amount: number) {
   }
   invalidateCache('critical_inventory')
   invalidateCache('all_inventory')
+  void emitRealtimeStoreEvent({ type: 'inventory_update' })
 }
 
 export async function createInventoryItem(
@@ -1378,6 +1483,7 @@ export async function updateInventoryItem(
 
   invalidateCache('critical_inventory')
   invalidateCache('all_inventory')
+  void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
 }
 
 export async function deleteInventoryItem(itemId: string, restaurantId?: string) {
@@ -1395,6 +1501,7 @@ export async function deleteInventoryItem(itemId: string, restaurantId?: string)
   invalidateCache('critical_inventory')
   invalidateCache('all_inventory')
   invalidateCache('admin_products')
+  void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
 }
 
 export async function getAllInventory(restaurantId?: string) {
@@ -1647,19 +1754,34 @@ export async function getOrdersByPeriod(
   if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
   if (startDate) builder = builder.gte('created_at', startDate.toISOString())
 
-  const fallback = SAMPLE_HISTORICAL_ORDERS.filter((o) => {
+  const recentPool = getRecentLocalOrders()
+  const localMatches = recentPool.filter((o) => {
+    if (restaurantId && o.restaurant_id && o.restaurant_id !== restaurantId) return false
     if (!startDate) return true
     return new Date(o.created_at) >= startDate
   })
 
+  const fallback = [
+    ...localMatches,
+    ...SAMPLE_HISTORICAL_ORDERS.filter((o) => {
+      if (!startDate) return true
+      return new Date(o.created_at) >= startDate
+    })
+  ]
+
   const query = builder.then(({ data, error }) => {
     if (!error && data && (data.length > 0 || restaurantId)) {
-      return data
+      const enriched = data.map((dbOrder: any) => enrichOrderItemsFallback(dbOrder, recentPool))
+      const dbIds = new Set(enriched.map((o: any) => o.id))
+      const localOnly = localMatches.filter((m) => m._fallbackOnly && !dbIds.has(m.id))
+      return [...localOnly, ...enriched].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
     }
-    return restaurantId ? [] : fallback
+    return restaurantId ? localMatches : fallback
   })
 
-  const result = await withTimeout(query, 1400, restaurantId ? [] : fallback)
+  const result = await withTimeout(query, 4000, restaurantId ? localMatches : fallback)
   setCached(cacheKey, result, 15)
   return result
 }

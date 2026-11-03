@@ -53,6 +53,14 @@ function TikTokIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   )
 }
 
+function FacebookIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    </svg>
+  )
+}
+
 const COLOR_PRESETS = [
   { name: 'Ámbar Leña & Fuego', primary: '#e59324', secondary: '#d34e2c' },
   { name: 'Rojo Pasión & Bodegón', primary: '#dc2626', secondary: '#991b1b' },
@@ -174,12 +182,12 @@ export default function SettingsPage() {
       description: restaurant.description || '',
       address: restaurant.address || '',
       phone: restaurant.phone || '',
-      whatsapp_number: restaurant.whatsapp_number || restaurant.phone || '',
-      instagram_handle: restaurant.instagram_handle || '',
-      facebook_url: restaurant.facebook_url || '',
-      tiktok_handle: restaurant.tiktok_handle || '',
-      google_maps_url: restaurant.google_maps_url || '',
-      opening_hours: restaurant.opening_hours || 'Martes a Domingo: 19:30 a 23:45',
+      whatsapp_number: restaurant.whatsapp_number ?? '',
+      instagram_handle: restaurant.instagram_handle ?? '',
+      facebook_url: restaurant.facebook_url ?? '',
+      tiktok_handle: restaurant.tiktok_handle ?? '',
+      google_maps_url: restaurant.google_maps_url ?? '',
+      opening_hours: restaurant.opening_hours ?? 'Martes a Domingo: 19:30 a 23:45',
       logo_url: restaurant.logo_url || '',
       banner_url: restaurant.banner_url || '/hero_rotiseria.jpg',
       primary_color: restaurant.primary_color || '#e59324',
@@ -1200,8 +1208,8 @@ export default function SettingsPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
-                <span className="font-bold text-xs text-blue-400">f</span>
-                <span>Página de Facebook (URL)</span>
+                <FacebookIcon className="w-3.5 h-3.5 text-blue-400" />
+                <span>Página de Facebook (dejar vacío para ocultar)</span>
               </label>
               <input
                 type="text"
