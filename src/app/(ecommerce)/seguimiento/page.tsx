@@ -15,25 +15,30 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchOrder = async (idToSearch: string) => {
+  const fetchOrder = async (idToSearch: string, silent = false) => {
     const cleanId = idToSearch.trim()
     if (!cleanId) return
 
-    setLoading(true)
-    setError('')
+    if (!silent) {
+      setLoading(true)
+      setError('')
+    }
 
     try {
       const data = await getOrderById(cleanId, restaurant?.id)
       if (data) {
         setOrder(data)
-      } else {
+      } else if (!silent) {
+        setOrder(null)
         setError('No se encontró ningún pedido con ese código en el sistema.')
       }
     } catch (err) {
       console.error(err)
-      setError('Código no encontrado o error de conexión. Verifica el código de tu pedido.')
+      if (!silent) {
+        setError('Código no encontrado o error de conexión. Verifica el código de tu pedido.')
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -50,23 +55,27 @@ export default function TrackingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurant?.id])
 
-  // Realtime subscription to order status updates
+  // Realtime subscription via WebSockets + periodic polling fallback
   useEffect(() => {
     if (!order?.id) return
 
     const uid = Math.random().toString(36).slice(2, 8)
     const channel = supabase
       .channel(`tracking-order-${order.id}-${uid}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders',
-        filter: `id=eq.${order.id}`
-      }, (payload) => {
-        if (payload.new && payload.new.status) {
-          setOrder((prev: any) => ({ ...prev, status: payload.new.status }))
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${order.id}`
+        },
+        (payload) => {
+          if (payload.new && payload.new.status) {
+            setOrder((prev: any) => ({ ...prev, status: payload.new.status }))
+          }
         }
-      })
+      )
       .subscribe()
 
     const unsubscribeBroadcast = subscribeToStoreRealtime(undefined, (evt) => {
@@ -75,10 +84,16 @@ export default function TrackingPage() {
       }
     })
 
+    const pollTimer = setInterval(() => {
+      fetchOrder(order.id, true)
+    }, 5000)
+
     return () => {
+      clearInterval(pollTimer)
       supabase.removeChannel(channel)
       unsubscribeBroadcast()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.id])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -133,7 +148,6 @@ export default function TrackingPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-16 min-h-[75vh]">
-
       {/* Header */}
       <div className="text-center mb-10">
         <div className="badge-rustic mb-4">
@@ -188,22 +202,37 @@ export default function TrackingPage() {
             borderColor: `color-mix(in srgb, ${primaryColor} 22%, var(--store-border, #4d3a2b))`
           }}
         >
-
           <div
             className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 pb-6 border-b gap-4"
             style={{ borderColor: 'var(--store-border, #382b21)' }}
           >
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>Número de Comanda</p>
-              <p className="font-rustic font-bold text-2xl text-white">#{order.id.split('-')[0].toUpperCase()}</p>
+              <p
+                className="text-xs font-semibold uppercase tracking-wider mb-1"
+                style={{ color: 'var(--store-text-muted, #8c6f59)' }}
+              >
+                Número de Comanda
+              </p>
+              <p className="font-rustic font-bold text-2xl text-white">
+                #{order.id.split('-')[0].toUpperCase()}
+              </p>
               {order.guest_name && (
-                <p className="text-xs mt-0.5" style={{ color: 'var(--store-text-muted, #bfa38c)' }}>Cliente: {order.guest_name}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--store-text-muted, #bfa38c)' }}>
+                  Cliente: {order.guest_name}
+                </p>
               )}
             </div>
 
             <div className="text-left sm:text-right">
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>Total del Pedido</p>
-              <p className="font-rustic font-bold text-2xl" style={{ color: primaryColor }}>${Number(order.total_amount).toLocaleString()}</p>
+              <p
+                className="text-xs font-semibold uppercase tracking-wider mb-1"
+                style={{ color: 'var(--store-text-muted, #8c6f59)' }}
+              >
+                Total del Pedido
+              </p>
+              <p className="font-rustic font-bold text-2xl" style={{ color: primaryColor }}>
+                ${Number(order.total_amount).toLocaleString()}
+              </p>
               <span className="text-[11px]" style={{ color: 'var(--store-text-muted, #a88a70)' }}>
                 {order.delivery_type === 'delivery' ? '🛵 Envío a domicilio' : '🏪 Retiro en local'}
               </span>
@@ -239,26 +268,38 @@ export default function TrackingPage() {
                   const statusInfo = getStatusDisplay(stepStatus)
 
                   return (
-                    <div key={stepStatus} className={`flex items-start gap-4 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-35'}`}>
+                    <div
+                      key={stepStatus}
+                      className={`flex items-start gap-4 transition-all duration-300 ${
+                        isActive ? 'opacity-100' : 'opacity-35'
+                      }`}
+                    >
                       <div
-                        className={`w-11 h-11 rounded-full flex items-center justify-center z-10 transition-all duration-500 shadow-md ${isCurrent
-                          ? 'text-[#151210] ring-4 scale-110 font-bold'
-                          : isActive
+                        className={`w-11 h-11 rounded-full flex items-center justify-center z-10 transition-all duration-500 shadow-md ${
+                          isCurrent
+                            ? 'text-[#151210] ring-4 scale-110 font-bold'
+                            : isActive
                             ? 'border'
                             : 'border'
-                          }`}
-                        style={isCurrent ? {
-                          backgroundColor: primaryColor,
-                          boxShadow: `0 0 16px ${primaryColor}40`
-                        } : isActive ? {
-                          backgroundColor: `${primaryColor}20`,
-                          color: primaryColor,
-                          borderColor: `${primaryColor}50`
-                        } : {
-                          backgroundColor: 'var(--store-subtle-bg, #241a14)',
-                          borderColor: 'var(--store-border, #382b21)',
-                          color: 'var(--store-text-muted, #7a6452)'
-                        }}
+                        }`}
+                        style={
+                          isCurrent
+                            ? {
+                                backgroundColor: primaryColor,
+                                boxShadow: `0 0 16px ${primaryColor}40`
+                              }
+                            : isActive
+                            ? {
+                                backgroundColor: `${primaryColor}20`,
+                                color: primaryColor,
+                                borderColor: `${primaryColor}50`
+                              }
+                            : {
+                                backgroundColor: 'var(--store-subtle-bg, #241a14)',
+                                borderColor: 'var(--store-border, #382b21)',
+                                color: 'var(--store-text-muted, #7a6452)'
+                              }
+                        }
                       >
                         <statusInfo.icon className="w-5 h-5" />
                       </div>
@@ -309,7 +350,10 @@ export default function TrackingPage() {
                 style={{ borderColor: 'var(--store-border, #2a1e16)' }}
               >
                 {order.order_items.map((item: any, i: number) => (
-                  <li key={i} className="pt-2 flex justify-between items-center text-[color:var(--store-text-soft)]">
+                  <li
+                    key={i}
+                    className="pt-2 flex justify-between items-center text-[color:var(--store-text-soft)]"
+                  >
                     <span>
                       <strong className="text-white font-semibold mr-2">{item.quantity}x</strong>
                       {item.products?.name || 'Plato artesanal'}
@@ -324,10 +368,8 @@ export default function TrackingPage() {
               </ul>
             </div>
           )}
-
         </div>
       )}
-
     </div>
   )
 }

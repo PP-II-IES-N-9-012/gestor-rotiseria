@@ -19,7 +19,7 @@ export interface RestaurantInfo {
   primary_color?: string
   secondary_color?: string
   theme_style?: 'rustic' | 'midnight' | 'bodegon' | 'espresso' | 'olive'
-  font_style?: 'serif' | 'sans'
+  font_style?: 'serif' | 'sans' | 'urban' | 'classic'
   announcement_banner?: string
   announcement_enabled?: boolean
   estimated_delivery_time?: string
@@ -40,6 +40,136 @@ export interface RestaurantInfo {
   hero_cta_text?: string
   hero_overlay_opacity?: 'dark' | 'medium' | 'light'
   footer_custom_text?: string
+
+  // Horario automático de apertura y cierre por local
+  auto_schedule_enabled?: boolean
+  schedule_open_time?: string
+  schedule_close_time?: string
+  schedule_second_shift_enabled?: boolean
+  schedule_open_time_2?: string
+  schedule_close_time_2?: string
+  schedule_days?: string
+
+  // Control global de etiquetas de productos
+  show_product_badges?: boolean
+}
+
+export interface StoreOpenStatus {
+  isOpen: boolean
+  reason: 'open' | 'manual_closed' | 'outside_hours' | 'closed_day'
+  message: string
+  scheduleSummary?: string
+}
+
+function parseTimeToMinutes(timeStr?: string, defaultMins = 0): number {
+  if (!timeStr || !timeStr.includes(':')) return defaultMins
+  const [hStr, mStr] = timeStr.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  if (isNaN(h) || isNaN(m)) return defaultMins
+  return h * 60 + m
+}
+
+function isWithinShiftMinutes(nowMins: number, openMins: number, closeMins: number): boolean {
+  if (openMins === closeMins) return true
+  if (closeMins > openMins) {
+    return nowMins >= openMins && nowMins < closeMins
+  }
+  // Cruza la medianoche (ej: 19:30 a 01:00)
+  return nowMins >= openMins || nowMins < closeMins
+}
+
+/**
+ * Evalúa si el restaurante se encuentra abierto en este instante,
+ * combinando el interruptor manual y el horario automático propio de ese local.
+ */
+export function getStoreOpenStatus(restaurant?: RestaurantInfo | null): StoreOpenStatus {
+  if (!restaurant) {
+    return { isOpen: true, reason: 'open', message: '' }
+  }
+
+  const baseClosedMsg =
+    restaurant.closed_message || 'El local se encuentra cerrado en este momento. ¡Volvemos pronto!'
+
+  if (restaurant.is_store_open === false) {
+    return {
+      isOpen: false,
+      reason: 'manual_closed',
+      message: baseClosedMsg
+    }
+  }
+
+  if (!restaurant.auto_schedule_enabled) {
+    return { isOpen: true, reason: 'open', message: '' }
+  }
+
+  const now = new Date()
+  const currentDay = now.getDay() // 0 = Domingo ... 6 = Sábado
+  const prevDay = (currentDay + 6) % 7
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+
+  const rawDays = (restaurant.schedule_days ?? '0,1,2,3,4,5,6').toString()
+  const allowedDays = new Set(
+    rawDays
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n))
+  )
+
+  const open1Str = restaurant.schedule_open_time || '19:30'
+  const close1Str = restaurant.schedule_close_time || '23:45'
+  const open1Mins = parseTimeToMinutes(open1Str, 19 * 60 + 30)
+  const close1Mins = parseTimeToMinutes(close1Str, 23 * 60 + 45)
+
+  const hasSecondShift = Boolean(restaurant.schedule_second_shift_enabled)
+  const open2Str = restaurant.schedule_open_time_2 || '11:30'
+  const close2Str = restaurant.schedule_close_time_2 || '14:30'
+  const open2Mins = parseTimeToMinutes(open2Str, 11 * 60 + 30)
+  const close2Mins = parseTimeToMinutes(close2Str, 14 * 60 + 30)
+
+  const scheduleSummary = hasSecondShift
+    ? `${open2Str} a ${close2Str} y ${open1Str} a ${close1Str} hs`
+    : `${open1Str} a ${close1Str} hs`
+
+  // Verificar si estamos en la madrugada de un turno nocturno iniciado el día anterior
+  const inOvernightFromYesterday1 =
+    close1Mins < open1Mins && nowMins < close1Mins && allowedDays.has(prevDay)
+  const inOvernightFromYesterday2 =
+    hasSecondShift && close2Mins < open2Mins && nowMins < close2Mins && allowedDays.has(prevDay)
+
+  if (inOvernightFromYesterday1 || inOvernightFromYesterday2) {
+    return { isOpen: true, reason: 'open', message: '', scheduleSummary }
+  }
+
+  if (!allowedDays.has(currentDay)) {
+    return {
+      isOpen: false,
+      reason: 'closed_day',
+      message: `${baseClosedMsg} (Hoy cerrado • Horario habitual: ${scheduleSummary})`,
+      scheduleSummary
+    }
+  }
+
+  const inShift1 =
+    close1Mins < open1Mins
+      ? nowMins >= open1Mins
+      : isWithinShiftMinutes(nowMins, open1Mins, close1Mins)
+  const inShift2 =
+    hasSecondShift &&
+    (close2Mins < open2Mins
+      ? nowMins >= open2Mins
+      : isWithinShiftMinutes(nowMins, open2Mins, close2Mins))
+
+  if (inShift1 || inShift2) {
+    return { isOpen: true, reason: 'open', message: '', scheduleSummary }
+  }
+
+  return {
+    isOpen: false,
+    reason: 'outside_hours',
+    message: `${baseClosedMsg} (Horario de pedidos: ${scheduleSummary})`,
+    scheduleSummary
+  }
 }
 
 // In-memory fallback for restaurant custom branding if Supabase table columns are pending migration
@@ -249,7 +379,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 12500,
     category: '🔥 Del Horno & Spiedo',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: '🔥 Más pedido'
   },
   {
     id: 'prod-emp-01',
@@ -259,7 +390,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 1600,
     category: '🥟 Empanadas Caseras',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '🔥 Más pedido'
   },
   {
     id: 'prod-emp-02',
@@ -269,7 +401,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 1500,
     category: '🥟 Empanadas Caseras',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: ''
   },
   {
     id: 'prod-emp-03',
@@ -279,7 +412,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 1600,
     category: '🥟 Empanadas Caseras',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '✨ ¡Nuevo!'
   },
   {
     id: 'prod-mila-01',
@@ -289,7 +423,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 14500,
     category: '🥩 Minutas & Platos Fuertes',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '⭐ Recomendado'
   },
   {
     id: 'prod-matambre-01',
@@ -299,7 +434,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 15800,
     category: '🥩 Minutas & Platos Fuertes',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: '👑 Especialidad'
   },
   {
     id: 'prod-pasta-01',
@@ -309,7 +445,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 11800,
     category: '🍝 Pastas Artesanales',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '🏷️ Oferta'
   },
   {
     id: 'prod-tarta-01',
@@ -319,7 +456,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 7200,
     category: '🥗 Tartas & Guarniciones',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: ''
   },
   {
     id: 'prod-papas-01',
@@ -329,7 +467,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 4900,
     category: '🥗 Tartas & Guarniciones',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: ''
   }
 ]
 
@@ -411,31 +550,41 @@ export async function getPublicTenantId() {
   return tenantId
 }
 
-// Helper para fusionar branding personalizado (memoria + localStorage en cliente)
+// Helper para fusionar únicamente campos cuya columna aún no exista en Supabase (sin pisar datos reales de la BDD)
 export function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
-  let merged: RestaurantInfo = { ...rest }
+  const merged: Record<string, any> = { ...rest }
   if (typeof window !== 'undefined') {
     try {
-      const bySub = rest.subdomain ? window.localStorage.getItem(`comandapp_branding_${rest.subdomain.toLowerCase()}`) : null
-      const byId = rest.id ? window.localStorage.getItem(`comandapp_branding_${rest.id.toLowerCase()}`) : null
-      const latest = window.localStorage.getItem('comandapp_branding_latest')
-      if (latest) {
-        const parsedLatest = JSON.parse(latest)
-        if (parsedLatest && (parsedLatest.id === rest.id || parsedLatest.subdomain === rest.subdomain || !rest.subdomain)) {
-          merged = { ...merged, ...parsedLatest }
+      // Limpiar llaves antiguas de localStorage que antes pisaban los datos compartidos de Supabase
+      window.localStorage.removeItem('comandapp_branding_latest')
+      if (rest.id) window.localStorage.removeItem(`comandapp_branding_${rest.id.toLowerCase()}`)
+      if (rest.subdomain) window.localStorage.removeItem(`comandapp_branding_${rest.subdomain.toLowerCase()}`)
+
+      // Solo aplicar respaldo local para columnas que aún sean undefined en la respuesta de Supabase
+      const rawUnmigrated = rest.id
+        ? window.localStorage.getItem(`comandapp_unmigrated_${rest.id.toLowerCase()}`)
+        : null
+      if (rawUnmigrated) {
+        const unmigrated = JSON.parse(rawUnmigrated)
+        for (const [k, v] of Object.entries(unmigrated)) {
+          if (merged[k] === undefined) {
+            merged[k] = v
+          }
         }
       }
-      if (bySub) merged = { ...merged, ...JSON.parse(bySub) }
-      if (byId) merged = { ...merged, ...JSON.parse(byId) }
     } catch {
       // Ignore localStorage parse errors
     }
   }
   const custom = inMemoryRestaurantBranding.get(rest.id) || (rest.subdomain ? inMemoryRestaurantBranding.get(rest.subdomain.toLowerCase()) : undefined)
   if (custom) {
-    merged = { ...merged, ...custom }
+    for (const [k, v] of Object.entries(custom)) {
+      if (merged[k] === undefined) {
+        merged[k] = v
+      }
+    }
   }
-  return merged
+  return merged as RestaurantInfo
 }
 
 // Obtener restaurante por subdominio o ID
@@ -457,9 +606,9 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
       .maybeSingle()
       .then(({ data }) => data || FALLBACK_RESTAURANT)
 
-    const result = await withTimeout(query, 1200, FALLBACK_RESTAURANT)
+    const result = await withTimeout(query, 4000, FALLBACK_RESTAURANT)
     const merged = mergeBranding(result)
-    setCached(cacheKey, merged, 60)
+    setCached(cacheKey, merged, 15)
     return merged
   }
 
@@ -493,9 +642,9 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
     subdomain: idOrSubdomain
   }
 
-  const result = await withTimeout(query, 1200, fallback)
+  const result = await withTimeout(query, 4000, fallback)
   const merged = mergeBranding(result)
-  setCached(cacheKey, merged, 60)
+  setCached(cacheKey, merged, 15)
   return merged
 }
 
@@ -518,45 +667,26 @@ export async function getRestaurantStrict(subdomain: string): Promise<Restaurant
     return res ? mergeBranding(res) : null
   })
 
-  const result = await withTimeout<RestaurantInfo | null>(query, 3000, sampleMatch)
+  const result = await withTimeout<RestaurantInfo | null>(query, 4000, sampleMatch)
   const merged = result ? mergeBranding(result) : null
-  if (merged) setCached(cacheKey, merged, 60)
+  if (merged) setCached(cacheKey, merged, 15)
   return merged
 }
 
-// Guarda la configuración completa y branding de un restaurante
+// Guarda la configuración completa y branding de un restaurante en Supabase (fuente de verdad compartida)
 export async function updateRestaurantBranding(
   restaurantId: string,
   data: Partial<RestaurantInfo>
 ) {
-  // 1. Guardar en respaldo en memoria y localStorage de inmediato para reactividad total
-  const current = inMemoryRestaurantBranding.get(restaurantId) || {}
-  const mergedData = { ...current, ...data, id: restaurantId }
-  inMemoryRestaurantBranding.set(restaurantId, mergedData)
-  if (data.subdomain) {
-    inMemoryRestaurantBranding.set(data.subdomain.toLowerCase(), mergedData)
-  }
-
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(`comandapp_branding_${restaurantId.toLowerCase()}`, JSON.stringify(mergedData))
-      if (data.subdomain) {
-        window.localStorage.setItem(`comandapp_branding_${data.subdomain.toLowerCase()}`, JSON.stringify(mergedData))
-      }
-      window.localStorage.setItem('comandapp_branding_latest', JSON.stringify(mergedData))
-    } catch (e) {
-      console.warn('Could not save branding to localStorage:', e)
-    }
-  }
-
-  // 2. Intentar persistir todos los campos soportados en Supabase
   const payload: Record<string, any> = { ...data }
   delete payload.id
   delete payload.subdomain // Subdominio es de solo lectura tras creación
 
+  const unmigratedFields: Record<string, any> = {}
+
   try {
     let attempts = 0
-    while (Object.keys(payload).length > 0 && attempts < 15) {
+    while (Object.keys(payload).length > 0 && attempts < 60) {
       attempts++
       const { error } = await supabase
         .from('restaurants')
@@ -565,10 +695,11 @@ export async function updateRestaurantBranding(
 
       if (!error) break
 
-      // Si PostgREST indica que una columna aún no fue migrada en la tabla restaurants, la quitamos y reintentamos con el resto
+      // Si PostgREST indica que una columna aún no fue migrada en la tabla restaurants, la separamos y reintentamos con el resto
       const match = error.message?.match(/Could not find the '([^']+)' column|column "([^"]+)" of relation/i)
       const missingCol = match?.[1] || match?.[2]
       if (missingCol && missingCol in payload) {
+        unmigratedFields[missingCol] = payload[missingCol]
         delete payload[missingCol]
         continue
       }
@@ -588,10 +719,30 @@ export async function updateRestaurantBranding(
     console.warn('DB update error for restaurant branding:', err)
   }
 
+  // Guardar en memoria/localStorage ÚNICAMENTE las columnas que no existan aún en la tabla de Supabase
+  if (Object.keys(unmigratedFields).length > 0) {
+    const prev = inMemoryRestaurantBranding.get(restaurantId) || {}
+    const nextUnmigrated = { ...prev, ...unmigratedFields }
+    inMemoryRestaurantBranding.set(restaurantId, nextUnmigrated)
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(`comandapp_unmigrated_${restaurantId.toLowerCase()}`, JSON.stringify(nextUnmigrated))
+      } catch {}
+    }
+  } else {
+    inMemoryRestaurantBranding.delete(restaurantId)
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(`comandapp_unmigrated_${restaurantId.toLowerCase()}`)
+      } catch {}
+    }
+  }
+
   invalidateCache('restaurant')
   invalidateCache('restaurant_strict')
   invalidateCache('all_restaurants')
 
+  const mergedData = { ...data, id: restaurantId }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('comandapp-branding-updated', { detail: mergedData }))
   }
@@ -613,11 +764,71 @@ export async function getAllRestaurants(): Promise<RestaurantInfo[]> {
   return result
 }
 
+const inMemoryProductBadges = new Map<string, string>()
+
+function getStoredProductBadge(productId: string): string | undefined {
+  if (inMemoryProductBadges.has(productId)) {
+    return inMemoryProductBadges.get(productId)
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('comandapp_product_badges')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && productId in parsed) {
+          return parsed[productId]
+        }
+      }
+    } catch {}
+  }
+  return undefined
+}
+
+function setStoredProductBadge(productId: string, badge: string) {
+  inMemoryProductBadges.set(productId, badge)
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('comandapp_product_badges')
+      const parsed = raw ? JSON.parse(raw) : {}
+      parsed[productId] = badge
+      window.localStorage.setItem('comandapp_product_badges', JSON.stringify(parsed))
+    } catch {}
+  }
+}
+
+function clearStoredProductBadge(productId: string) {
+  inMemoryProductBadges.delete(productId)
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('comandapp_product_badges')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && productId in parsed) {
+          delete parsed[productId]
+          window.localStorage.setItem('comandapp_product_badges', JSON.stringify(parsed))
+        }
+      }
+    } catch {}
+  }
+}
+
+function enrichProductWithBadge<T extends { id: string; badge?: string }>(p: T): T {
+  // Si la columna badge ya viene desde Supabase, usar siempre el valor real de la base de datos
+  if (p.badge !== undefined && p.badge !== null) {
+    return p
+  }
+  const localBadge = getStoredProductBadge(p.id)
+  if (localBadge !== undefined) {
+    return { ...p, badge: localBadge }
+  }
+  return p
+}
+
 // --- Products (Public) ---
 export async function getProducts(restaurantIdOrSubdomain?: string) {
   const cacheKey = `products:${restaurantIdOrSubdomain || 'default'}`
   const cached = getCached<any[]>(cacheKey)
-  if (cached) return cached
+  if (cached) return cached.map(enrichProductWithBadge)
 
   const query = (async () => {
     let id = restaurantIdOrSubdomain
@@ -635,13 +846,13 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
 
     const isSample = SAMPLE_RESTAURANTS.some(r => r.id === id) || id === FALLBACK_RESTAURANT.id
     if (!error && data && (data.length > 0 || !isSample)) {
-      return data
+      return data.map(enrichProductWithBadge)
     }
-    return ARTISANAL_FALLBACK_PRODUCTS
+    return ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge)
   })()
 
-  const result = await withTimeout(query, 1200, ARTISANAL_FALLBACK_PRODUCTS)
-  setCached(cacheKey, result, 60)
+  const result = await withTimeout(query, 4000, ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge))
+  setCached(cacheKey, result, 15)
   return result
 }
 
@@ -668,6 +879,7 @@ export interface ProductItem {
   category: string
   is_available: boolean
   image_url?: string
+  badge?: string
   ingredients?: string[]
   product_ingredients?: ProductIngredientItem[]
 }
@@ -679,7 +891,7 @@ const inMemoryRecipes = new Map<string, { inventory_item_id: string; quantity: n
 export async function getAdminProducts(restaurantId?: string): Promise<ProductItem[]> {
   const cacheKey = `admin_products:${restaurantId || 'all'}`
   const cached = getCached<ProductItem[]>(cacheKey)
-  if (cached) return cached
+  if (cached) return cached.map(enrichProductWithBadge)
 
   let builder = supabase.from('products').select(`
     *,
@@ -708,7 +920,7 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
       const { data: plainData } = await plainBuilder.order('name', { ascending: true })
 
       const list = plainData || (restaurantId ? [] : ARTISANAL_FALLBACK_PRODUCTS)
-      return list.map((p: any) => ({
+      return list.map((p: any) => enrichProductWithBadge({
         ...p,
         product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
           ...r,
@@ -722,20 +934,20 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
         // Enlazar también si había en memoria
         const mem = inMemoryRecipes.get(p.id)
         if ((!p.product_ingredients || p.product_ingredients.length === 0) && mem) {
-          return {
+          return enrichProductWithBadge({
             ...p,
             product_ingredients: mem.map(r => ({ ...r, product_id: p.id }))
-          }
+          })
         }
-        return p
+        return enrichProductWithBadge(p)
       })
     }
-    return restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS as any[])
+    return restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
   })
 
-  const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS as any[])
-  const result = await withTimeout(query, 1500, fallback)
-  setCached(cacheKey, result, 30)
+  const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
+  const result = await withTimeout(query, 4000, fallback)
+  setCached(cacheKey, result, 15)
   return result
 }
 
@@ -749,6 +961,7 @@ export async function saveProduct(
     category: string
     is_available?: boolean
     image_url?: string
+    badge?: string
   },
   recipe: { inventory_item_id: string; quantity: number }[],
   restaurantId: string
@@ -757,47 +970,72 @@ export async function saveProduct(
     productData.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 10) + '-' + Math.floor(Math.random() * 900 + 100)
 
   let productId = productData.id
+  const badgeVal = productData.badge !== undefined ? productData.badge.trim() : ''
+  let badgeSavedInDb = true
+
+  const basePayload: Record<string, any> = {
+    name: productData.name,
+    code,
+    description: productData.description || '',
+    price: Number(productData.price),
+    category: productData.category,
+    is_available: productData.is_available ?? true,
+    image_url: productData.image_url || '',
+    badge: badgeVal
+  }
 
   if (productId) {
-    // Actualizar producto existente
-    const { error } = await supabase
+    // Actualizar producto existente (con fallback si la columna badge aún no se migró en DB)
+    let { error } = await supabase
       .from('products')
-      .update({
-        name: productData.name,
-        code,
-        description: productData.description || '',
-        price: Number(productData.price),
-        category: productData.category,
-        is_available: productData.is_available ?? true,
-        image_url: productData.image_url || ''
-      })
+      .update(basePayload)
       .eq('id', productId)
       .eq('restaurant_id', restaurantId)
+
+    if (error && /badge/i.test(error.message || '')) {
+      badgeSavedInDb = false
+      const { badge: _omit, ...withoutBadge } = basePayload
+      const retry = await supabase
+        .from('products')
+        .update(withoutBadge)
+        .eq('id', productId)
+        .eq('restaurant_id', restaurantId)
+      error = retry.error
+    }
 
     if (error) throw error
   } else {
     // Crear nuevo producto
-    const { data: newProd, error } = await supabase
+    const insertPayload: Record<string, any> = { ...basePayload, restaurant_id: restaurantId }
+    let { data: newProd, error } = await supabase
       .from('products')
-      .insert({
-        restaurant_id: restaurantId,
-        name: productData.name,
-        code,
-        description: productData.description || '',
-        price: Number(productData.price),
-        category: productData.category,
-        is_available: productData.is_available ?? true,
-        image_url: productData.image_url || ''
-      })
+      .insert(insertPayload)
       .select()
       .single()
+
+    if (error && /badge/i.test(error.message || '')) {
+      badgeSavedInDb = false
+      const { badge: _omit, ...withoutBadge } = insertPayload
+      const retry = await supabase
+        .from('products')
+        .insert(withoutBadge)
+        .select()
+        .single()
+      newProd = retry.data
+      error = retry.error
+    }
 
     if (error) throw error
     productId = newProd.id
   }
 
-  // Guardar receta en memoria de respaldo
+  // Si la columna badge existe en la BDD, limpiamos localStorage para no pisar cambios de otros usuarios
   if (productId) {
+    if (badgeSavedInDb) {
+      clearStoredProductBadge(productId)
+    } else {
+      setStoredProductBadge(productId, badgeVal)
+    }
     inMemoryRecipes.set(productId, recipe)
   }
 
@@ -1017,6 +1255,42 @@ function enrichOrderItemsFallback(dbOrder: any, recentPool: any[]): any {
   return dbOrder
 }
 
+function generateOrderUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+function saveRecentOrderLocal(order: any) {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem('comandapp_recent_orders')
+    const list: any[] = raw ? JSON.parse(raw) : []
+    const filtered = list.filter((o) => o && o.id !== order.id)
+    filtered.unshift(order)
+    window.localStorage.setItem('comandapp_recent_orders', JSON.stringify(filtered.slice(0, 25)))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function getRecentOrderLocal(orderId: string): any | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem('comandapp_recent_orders')
+    if (!raw) return null
+    const list: any[] = JSON.parse(raw)
+    return list.find((o) => o && o.id === orderId) || null
+  } catch {
+    return null
+  }
+}
+
 // --- Orders (Public & Admin) ---
 export async function createOrder(
   order: {
@@ -1049,29 +1323,37 @@ export async function createOrder(
     finalNotes = finalNotes ? `${finalNotes} | Ítems: ${fallbackSummary}` : `Ítems: ${fallbackSummary}`
   }
 
-  let createdOrder: any = null
+  const generatedId = generateOrderUuid()
+  const nowIso = new Date().toISOString()
   let isFallbackOnly = false
+  let createdOrder: any = {
+    id: generatedId,
+    restaurant_id: id,
+    ...order,
+    notes: finalNotes || undefined,
+    status: order.status || 'pending',
+    created_at: nowIso
+  }
 
   try {
-    const { data: newOrder, error: orderError } = await supabase
+    const { error: orderError } = await supabase
       .from('orders')
       .insert({
+        id: generatedId,
         ...order,
+        status: order.status || 'pending',
         notes: finalNotes || undefined,
         restaurant_id: id
       })
-      .select()
-      .single()
 
     if (orderError) throw orderError
-    createdOrder = newOrder
 
     if (uuidItems.length > 0) {
       const orderItems = uuidItems.map((item) => ({
         product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
-        order_id: newOrder.id
+        order_id: generatedId
       }))
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
@@ -1082,17 +1364,9 @@ export async function createOrder(
   } catch (dbErr) {
     console.warn('Fallback order creation in memory:', dbErr)
     isFallbackOnly = true
-    createdOrder = {
-      id: `ord-${Math.random().toString(36).substring(2, 8)}`,
-      restaurant_id: id,
-      ...order,
-      notes: finalNotes || undefined,
-      status: order.status || 'pending',
-      created_at: new Date().toISOString()
-    }
   }
 
-  // Guardar representación rica con nombres de productos para visualización inmediata en Cocina / KPIs
+  // Guardar representación rica con nombres de productos para visualización inmediata en Cocina / Seguimiento / KPIs
   const enrichedOrder = {
     ...createdOrder,
     _fallbackOnly: isFallbackOnly,
@@ -1110,6 +1384,7 @@ export async function createOrder(
   }
 
   inMemoryCreatedOrders.unshift(enrichedOrder)
+  saveRecentOrderLocal(enrichedOrder)
   saveRecentLocalOrder(enrichedOrder)
 
   // Descontar automáticamente del inventario según las recetas de los productos
@@ -1123,6 +1398,7 @@ export async function createOrder(
 
   invalidateCache('orders')
   invalidateCache('today_orders')
+  invalidateCache('orders_period')
   invalidateCache('critical_inventory')
   invalidateCache('all_inventory')
 
@@ -1141,47 +1417,69 @@ export async function createOrder(
 
 // Para seguimiento público
 export async function getOrderById(orderId: string, restaurantId?: string) {
-  const id = restaurantId || (await getPublicTenantId())
+  const cleanId = orderId.trim()
+  const memMatch =
+    inMemoryCreatedOrders.find((o) => o.id === cleanId) ||
+    getRecentOrderLocal(cleanId)
 
-  const query = supabase
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(cleanId)) {
+    return memMatch || null
+  }
+
+  let builder = supabase
     .from('orders')
     .select(`
       *,
       order_items (
         quantity,
+        unit_price,
         product_id,
         products (
           name
         )
       )
     `)
-    .eq('id', orderId)
-    .eq('restaurant_id', id)
-    .maybeSingle()
-    .then(({ data, error }) => {
-      if (!error && data) return data
-      return null
-    })
+    .eq('id', cleanId)
 
-  const fallback = {
-    id: orderId || 'b326adf8-3a44-4736-bf3e-06e1e6bba946',
-    restaurant_id: id,
-    guest_name: 'Carlos Mendoza',
-    guest_phone: '+54 9 11 5566-7788',
-    delivery_type: 'delivery',
-    guest_address: 'Av. San Martín 1420, Piso 4 Depto B',
-    status: 'preparing',
-    total_amount: 19700,
-    created_at: new Date(Date.now() - 15 * 60000).toISOString(),
-    notes: 'Por favor entregar con pan casero y salsa criolla extra.',
-    order_items: [
-      { quantity: 1, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } },
-      { quantity: 6, unit_price: 8000, products: { name: 'Empanadas Caseras Criollas a Cuchillo' } },
-      { quantity: 1, unit_price: 4900, products: { name: 'Porción de Papas Fritas Rústicas a la Provenzal' } }
-    ]
+  if (restaurantId) {
+    builder = builder.eq('restaurant_id', restaurantId)
   }
 
-  const result = await withTimeout(query, 1200, fallback)
+  const query = builder.maybeSingle().then(({ data, error }) => {
+    if (!error && data) {
+      if ((!data.order_items || data.order_items.length === 0) && memMatch?.order_items) {
+        return { ...data, order_items: memMatch.order_items }
+      }
+      return data
+    }
+    return null
+  })
+
+  // Solo usar orden de demostración si se consulta explícitamente el ID de ejemplo de la documentación
+  const demoFallback =
+    cleanId === FALLBACK_RESTAURANT.id
+      ? {
+          id: FALLBACK_RESTAURANT.id,
+          restaurant_id: restaurantId || FALLBACK_RESTAURANT.id,
+          guest_name: 'Carlos Mendoza',
+          guest_phone: '+54 9 11 5566-7788',
+          delivery_type: 'delivery',
+          guest_address: 'Av. San Martín 1420, Piso 4 Depto B',
+          status: 'preparing',
+          total_amount: 19700,
+          created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+          notes: 'Por favor entregar con pan casero y salsa criolla extra.',
+          order_items: [
+            { quantity: 1, unit_price: 12500, products: { name: 'Pollo al Spiedo al Limón y Finas Hierbas' } },
+            { quantity: 6, unit_price: 8000, products: { name: 'Empanadas Caseras Criollas a Cuchillo' } },
+            { quantity: 1, unit_price: 4900, products: { name: 'Porción de Papas Fritas Rústicas a la Provenzal' } }
+          ]
+        }
+      : null
+
+  const fallback = memMatch || demoFallback
+  const result = await withTimeout(query, 4000, fallback)
   return result || fallback
 }
 
@@ -1274,7 +1572,7 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
   const query = builder
     .order('created_at', { ascending: true })
     .then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
+      if (!error && data && (data.length > 0 || restaurantId)) {
         const enriched = data.map((dbOrder: any) => enrichOrderItemsFallback(dbOrder, recentPool))
         const dbIds = new Set(enriched.map((o: any) => o.id))
         const localOnly = memMatches.filter((m) => m._fallbackOnly && !dbIds.has(m.id))
@@ -1283,9 +1581,11 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
       return [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
     })
 
-  const fallback = [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
-  const result = await withTimeout(query, 2500, fallback)
-  setCached(cacheKey, result, 10)
+  const fallback = restaurantId
+    ? memMatches
+    : [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
+  const result = await withTimeout(query, 3500, fallback)
+  setCached(cacheKey, result, 5)
   return result
 }
 
@@ -1295,6 +1595,10 @@ export async function updateOrderStatus(orderId: string, status: string) {
     memOrder.status = status
   }
   updateRecentLocalOrderStatus(orderId, status)
+  const localOrder = getRecentOrderLocal(orderId)
+  if (localOrder) {
+    saveRecentOrderLocal({ ...localOrder, status })
+  }
   try {
     const { error } = await supabase
       .from('orders')
@@ -1307,6 +1611,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
   }
   invalidateCache('orders')
   invalidateCache('today_orders')
+  invalidateCache('orders_period')
   void emitRealtimeStoreEvent({
     type: 'order_status',
     orderId,

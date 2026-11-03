@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
+import { getRestaurant, getRestaurantStrict, invalidateCache, type RestaurantInfo } from '@/lib/api'
 import { 
   AdminRestaurantContext, 
   AdminSetRestaurantContext,
@@ -173,6 +173,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [router])
 
+  // Sincronización en tiempo real del restaurante entre distintos dispositivos/usuarios
+  useEffect(() => {
+    if (!restaurant?.id) return
+    const channel = supabase
+      .channel(`admin-restaurant-sync-${restaurant.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'restaurants', filter: `id=eq.${restaurant.id}` },
+        async () => {
+          invalidateCache('restaurant')
+          invalidateCache('restaurant_strict')
+          const fresh = await getRestaurant(restaurant.id)
+          if (fresh) setRestaurant(fresh)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [restaurant?.id])
+
   // Route Guard: Bloqueo de rutas en tiempo real según rol
   useEffect(() => {
     if (loading) return
@@ -210,6 +232,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const primaryColor = restaurant?.primary_color || '#e59324'
   const secondaryColor = restaurant?.secondary_color || '#d34e2c'
   const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
+  const fontClass = `font-style-${restaurant?.font_style || 'serif'}`
 
   return (
     <AdminRestaurantContext.Provider value={restaurant}>
@@ -217,7 +240,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AdminUserRoleContext.Provider value={userRole}>
           <AdminUserProfileContext.Provider value={userProfile}>
             <div 
-              className={`flex h-screen text-[#fcf9f5] overflow-hidden ${themeClass}`}
+              className={`flex h-screen text-[#fcf9f5] overflow-hidden ${themeClass} ${fontClass}`}
               style={{
                 '--brand-primary': primaryColor,
                 '--brand-secondary': secondaryColor,
@@ -240,7 +263,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     className="min-h-[6.5rem] py-3 flex items-center px-6 border-b transition-colors"
                     style={{ borderColor: `${primaryColor}20` }}
                   >
-                    <Link href="/" className="flex items-center space-x-3.5 group">
+                    <Link href={storeHref} className="flex items-center space-x-3.5 group">
                       {restaurant?.logo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img 
@@ -380,12 +403,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     >
                       {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                     </button>
-                    <div className="flex items-center space-x-2">
+                    <Link href={storeHref} className="flex items-center space-x-2">
                       <Flame className="w-5 h-5" style={{ color: primaryColor }} />
                       <span className="font-rustic text-lg font-bold tracking-tight text-white">
                         Comand<span style={{ color: primaryColor }}>App</span>
                       </span>
-                    </div>
+                    </Link>
                   </div>
 
                   <div className="flex items-center gap-2">

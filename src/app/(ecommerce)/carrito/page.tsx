@@ -5,7 +5,7 @@ import { Minus, Plus, Trash2, ArrowRight, Utensils, Sparkles, ChefHat, CheckCirc
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createOrder } from '@/lib/api'
+import { createOrder, getStoreOpenStatus } from '@/lib/api'
 import { useStoreTenant } from '@/lib/useStoreTenant'
 
 export default function CartPage() {
@@ -50,7 +50,7 @@ export default function CartPage() {
             <p><strong className="text-white">Cliente:</strong> {formData.name}</p>
             <p><strong className="text-white">Modalidad:</strong> {formData.deliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}</p>
             {formData.deliveryType === 'delivery' && <p><strong className="text-white">Dirección:</strong> {formData.address}</p>}
-            <p><strong className="text-white">Total a abonar:</strong> ${total().toLocaleString()}</p>
+            <p><strong className="text-white">Total a abonar:</strong> ${Number(orderDone.total_amount || 0).toLocaleString()}</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -94,6 +94,7 @@ export default function CartPage() {
   const cashDiscountPct = formData.paymentMethod === 'cash' ? Number(restaurant?.cash_discount_percentage || 0) : 0
   const discountAmount = cashDiscountPct > 0 ? Math.round((subtotal * cashDiscountPct) / 100) : 0
   const finalTotal = Math.max(0, subtotal - discountAmount)
+  const storeStatus = getStoreOpenStatus(restaurant)
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,8 +103,9 @@ export default function CartPage() {
       return
     }
 
-    if (restaurant && restaurant.is_store_open === false) {
-      alert(restaurant.closed_message || "El local se encuentra cerrado temporalmente y no está recibiendo pedidos en este momento.")
+    const currentStatus = getStoreOpenStatus(restaurant)
+    if (!currentStatus.isOpen) {
+      alert(currentStatus.message)
       return
     }
 
@@ -391,12 +393,24 @@ export default function CartPage() {
               </div>
             </div>
 
+            {!storeStatus.isOpen && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs text-center font-medium">
+                🔴 {storeStatus.message}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="btn-primary w-full flex items-center justify-center space-x-2 py-3.5 text-base font-semibold disabled:opacity-50"
+              disabled={isSubmitting || !storeStatus.isOpen}
+              className="btn-primary w-full flex items-center justify-center space-x-2 py-3.5 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span>{isSubmitting ? 'Enviando a cocina...' : 'Confirmar Pedido'}</span>
+              <span>
+                {!storeStatus.isOpen
+                  ? 'Local Cerrado por Horario'
+                  : isSubmitting
+                    ? 'Enviando a cocina...'
+                    : 'Confirmar Pedido'}
+              </span>
               <ArrowRight className="w-5 h-5" />
             </button>
 

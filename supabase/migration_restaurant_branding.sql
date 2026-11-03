@@ -1,9 +1,10 @@
 -- =================================================================================
--- MIGRACIÓN COMPLETA: Personalización Profunda de Tienda (Branding, Colores, Logos, Banners, Temas y Redes)
+-- MIGRACIÓN COMPLETA Y SINCRONIZACIÓN MULTI-USUARIO:
+-- Personalización de Tienda, Horarios Automáticos, Etiquetas y Políticas RLS
 -- Ejecutar en Supabase -> SQL Editor -> New Query -> Run
 -- =================================================================================
 
--- 1. Agregar todas las columnas de personalización estética y de información
+-- 1. Agregar todas las columnas de personalización estética, horarios automáticos y configuración
 ALTER TABLE public.restaurants 
 ADD COLUMN IF NOT EXISTS description TEXT,
 ADD COLUMN IF NOT EXISTS address TEXT,
@@ -37,21 +38,56 @@ ADD COLUMN IF NOT EXISTS accepts_card BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS cash_discount_percentage NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS hero_cta_text TEXT DEFAULT 'Pedir al plato',
 ADD COLUMN IF NOT EXISTS hero_overlay_opacity TEXT DEFAULT 'dark',
-ADD COLUMN IF NOT EXISTS footer_custom_text TEXT DEFAULT 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.';
+ADD COLUMN IF NOT EXISTS footer_custom_text TEXT DEFAULT 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.',
+ADD COLUMN IF NOT EXISTS auto_schedule_enabled BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS schedule_open_time TEXT DEFAULT '19:30',
+ADD COLUMN IF NOT EXISTS schedule_close_time TEXT DEFAULT '23:45',
+ADD COLUMN IF NOT EXISTS schedule_second_shift_enabled BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS schedule_open_time_2 TEXT DEFAULT '11:30',
+ADD COLUMN IF NOT EXISTS schedule_close_time_2 TEXT DEFAULT '15:00',
+ADD COLUMN IF NOT EXISTS schedule_days TEXT DEFAULT '0,2,3,4,5,6',
+ADD COLUMN IF NOT EXISTS show_product_badges BOOLEAN DEFAULT true;
 
--- 2. Asegurar que las políticas RLS permitan actualizar estas columnas por parte del administrador
-DROP POLICY IF EXISTS "Users can update their own restaurant" ON public.restaurants;
-CREATE POLICY "Users can update their own restaurant" 
-ON public.restaurants FOR UPDATE 
-USING (id = (SELECT restaurant_id FROM public.profiles WHERE id = auth.uid()));
+-- 2. Agregar columna de etiqueta promocional a los productos ("🔥 Más pedido", "✨ ¡Nuevo!", "🏷️ Oferta", o vacío para ocultar)
+ALTER TABLE public.products
+ADD COLUMN IF NOT EXISTS badge TEXT DEFAULT '';
 
--- 3. Los clientes públicos pueden leer todas las columnas de la tienda
+-- 3. Políticas RLS para que TODOS los administradores/colaboradores vean y guarden cambios en la BDD compartida
 DROP POLICY IF EXISTS "Public can read restaurants" ON public.restaurants;
 CREATE POLICY "Public can read restaurants" 
 ON public.restaurants FOR SELECT 
 USING (true);
 
--- 4. (Opcional pero Recomendado) Crear Bucket público de Storage para Logos y Banners
+DROP POLICY IF EXISTS "Users can update their own restaurant" ON public.restaurants;
+DROP POLICY IF EXISTS "Allow update restaurants" ON public.restaurants;
+CREATE POLICY "Allow update restaurants" 
+ON public.restaurants FOR UPDATE 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public can read products" ON public.products;
+CREATE POLICY "Public can read products" 
+ON public.products FOR SELECT 
+USING (true);
+
+DROP POLICY IF EXISTS "Allow manage products" ON public.products;
+CREATE POLICY "Allow manage products" 
+ON public.products FOR ALL 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow manage inventory_items" ON public.inventory_items;
+CREATE POLICY "Allow manage inventory_items" 
+ON public.inventory_items FOR ALL 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow read profiles" ON public.profiles;
+CREATE POLICY "Allow read profiles" 
+ON public.profiles FOR SELECT 
+USING (true);
+
+-- 4. Bucket público de Storage para Logos, Banners y Fotos de Productos
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('restaurant-media', 'restaurant-media', true)
 ON CONFLICT (id) DO NOTHING;

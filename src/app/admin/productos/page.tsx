@@ -26,9 +26,11 @@ import {
   toggleProductAvailability, 
   getAllInventory,
   uploadRestaurantMedia,
+  invalidateCache,
   type ProductItem 
 } from '@/lib/api'
 import { useAdminRestaurant } from '@/lib/AdminContext'
+import { supabase } from '@/lib/supabase'
 
 interface RecipeRow {
   inventory_item_id: string
@@ -38,6 +40,16 @@ interface RecipeRow {
 const DEFAULT_IMAGES = [
   { label: 'Plato Casero / Horno', url: '/hero_rotiseria.jpg' },
   { label: 'Especialidades / Minutas', url: '/artisanal_dishes.jpg' },
+]
+
+const BADGE_PRESETS = [
+  { label: '🚫 Sin etiqueta (Ocultar)', value: '' },
+  { label: '🔥 Más pedido', value: '🔥 Más pedido' },
+  { label: '✨ ¡Nuevo!', value: '✨ ¡Nuevo!' },
+  { label: '🏷️ Oferta', value: '🏷️ Oferta' },
+  { label: '⭐ Recomendado', value: '⭐ Recomendado' },
+  { label: '👑 Especialidad', value: '👑 Especialidad' },
+  { label: '⚡ Promo del Día', value: '⚡ Promo del Día' },
 ]
 
 export default function AdminProductsPage() {
@@ -63,6 +75,7 @@ export default function AdminProductsPage() {
   const [formPrice, setFormPrice] = useState<number | ''>('')
   const [formDescription, setFormDescription] = useState('')
   const [formImageUrl, setFormImageUrl] = useState('')
+  const [formBadge, setFormBadge] = useState('')
   const [formIsAvailable, setFormIsAvailable] = useState(true)
   const [formRecipe, setFormRecipe] = useState<RecipeRow[]>([])
   const [formError, setFormError] = useState('')
@@ -105,6 +118,23 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     loadData()
+    if (!restaurantId) return
+    const channel = supabase
+      .channel(`admin-products-sync-${restaurantId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products', filter: `restaurant_id=eq.${restaurantId}` },
+        () => {
+          invalidateCache('admin_products')
+          invalidateCache('products')
+          loadData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId])
 
@@ -116,6 +146,7 @@ export default function AdminProductsPage() {
     setFormPrice('')
     setFormDescription('')
     setFormImageUrl('/hero_rotiseria.jpg')
+    setFormBadge('')
     setFormIsAvailable(true)
     setFormRecipe([])
     setFormError('')
@@ -132,6 +163,7 @@ export default function AdminProductsPage() {
     setFormPrice(Number(product.price) || 0)
     setFormDescription(product.description || '')
     setFormImageUrl(product.image_url || '')
+    setFormBadge(product.badge || '')
     setFormIsAvailable(product.is_available)
     setUploadingImage(false)
     setShowManualUrl(false)
@@ -200,6 +232,7 @@ export default function AdminProductsPage() {
           price: Number(formPrice),
           description: formDescription.trim(),
           image_url: formImageUrl.trim(),
+          badge: formBadge.trim(),
           is_available: formIsAvailable
         },
         formRecipe,
@@ -431,6 +464,21 @@ export default function AdminProductsPage() {
                       <Power className="w-3 h-3" />
                       <span>{product.is_available ? 'En Carta' : 'Pausado'}</span>
                     </button>
+
+                    {/* Promotional Badge */}
+                    {product.badge && (
+                      <div
+                        className="absolute bottom-3 right-3 backdrop-blur-sm border text-[10px] px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 shadow-md"
+                        style={{
+                          backgroundColor: 'rgba(18,14,11,0.88)',
+                          borderColor: `${primaryColor}55`,
+                          color: primaryColor,
+                        }}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>{product.badge}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Body Content */}
@@ -652,6 +700,62 @@ export default function AdminProductsPage() {
                       onChange={(e) => setFormCode(e.target.value)}
                       placeholder="Ej: HAMB-DOBLE (auto-generado si se omite)"
                       className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors font-mono text-xs"
+                    />
+                  </div>
+
+                  {/* ETIQUETA DESTACADA DEL PRODUCTO */}
+                  <div className="space-y-2 sm:col-span-2 bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" style={{ color: primaryColor }} />
+                        <span>Etiqueta Destacada (Ej: ¡Nuevo!, Oferta, Más pedido)</span>
+                      </label>
+                      {formBadge && (
+                        <button
+                          type="button"
+                          onClick={() => setFormBadge('')}
+                          className="text-[10px] text-rose-400 hover:underline flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" />
+                          Desactivar etiqueta
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {BADGE_PRESETS.map((preset) => {
+                        const isSelected = formBadge === preset.value
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => setFormBadge(preset.value)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                              isSelected
+                                ? 'text-white shadow-md'
+                                : 'bg-[color:var(--store-card-bg)] text-[color:var(--store-text-muted)] border-[color:var(--store-border)] hover:text-white'
+                            }`}
+                            style={
+                              isSelected
+                                ? {
+                                    backgroundColor: preset.value === '' ? '#dc2626' : primaryColor,
+                                    borderColor: preset.value === '' ? '#dc2626' : primaryColor,
+                                  }
+                                : undefined
+                            }
+                          >
+                            {preset.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={formBadge}
+                      onChange={(e) => setFormBadge(e.target.value)}
+                      placeholder="O escribe tu propia etiqueta personalizada (déjalo vacío para ocultarla)"
+                      className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
                     />
                   </div>
 

@@ -174,10 +174,46 @@
   }
 
   .font-rustic {
-    font-family: var(--font-serif), Georgia, serif;
+    font-family: var(--active-font-heading, var(--font-serif), Georgia, serif) !important;
   }
   .font-modern {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --active-font-heading: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
+    --active-font-body: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
+    font-family: var(--active-font-body) !important;
+  }
+  .font-style-serif {
+    --active-font-heading: var(--font-serif), Georgia, serif;
+    --active-font-body: var(--font-inter), system-ui, sans-serif;
+    font-family: var(--active-font-body);
+  }
+  .font-style-sans {
+    --active-font-heading: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
+    --active-font-body: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
+    font-family: var(--active-font-body);
+  }
+  .font-style-urban {
+    --active-font-heading: var(--font-oswald), Impact, sans-serif;
+    --active-font-body: var(--font-outfit), system-ui, sans-serif;
+    font-family: var(--active-font-body);
+    letter-spacing: 0.01em;
+  }
+  .font-style-classic {
+    --active-font-heading: var(--font-courier), 'Courier New', monospace;
+    --active-font-body: var(--font-courier), 'Courier New', monospace;
+    font-family: var(--active-font-body);
+  }
+  .font-preview-serif {
+    font-family: var(--font-serif), Georgia, serif !important;
+  }
+  .font-preview-sans {
+    font-family: var(--font-outfit), var(--font-inter), system-ui, sans-serif !important;
+  }
+  .font-preview-urban {
+    font-family: var(--font-oswald), Impact, sans-serif !important;
+    letter-spacing: 0.02em;
+  }
+  .font-preview-classic {
+    font-family: var(--font-courier), 'Courier New', monospace !important;
   }
 }
 

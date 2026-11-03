@@ -40,6 +40,7 @@ DROP POLICY IF EXISTS "Admins can manage products" ON public.products;
 DROP POLICY IF EXISTS "Staff can read products" ON public.products;
 
 DROP POLICY IF EXISTS "Public can insert orders" ON public.orders;
+DROP POLICY IF EXISTS "Public can read orders" ON public.orders;
 DROP POLICY IF EXISTS "Users can manage their orders" ON public.orders;
 DROP POLICY IF EXISTS "Users can update their orders" ON public.orders;
 DROP POLICY IF EXISTS "Admins and sellers can insert orders" ON public.orders;
@@ -48,6 +49,7 @@ DROP POLICY IF EXISTS "Staff can update orders" ON public.orders;
 DROP POLICY IF EXISTS "Admins can delete orders" ON public.orders;
 
 DROP POLICY IF EXISTS "Public can insert order items" ON public.order_items;
+DROP POLICY IF EXISTS "Public can read order items" ON public.order_items;
 DROP POLICY IF EXISTS "Users can read their order items" ON public.order_items;
 DROP POLICY IF EXISTS "Staff can read order items" ON public.order_items;
 DROP POLICY IF EXISTS "Staff can insert order items" ON public.order_items;
@@ -127,6 +129,10 @@ CREATE POLICY "Public can insert orders"
 ON public.orders FOR INSERT 
 WITH CHECK (true);
 
+CREATE POLICY "Public can read orders" 
+ON public.orders FOR SELECT 
+USING (true);
+
 CREATE POLICY "Staff can read orders" 
 ON public.orders FOR SELECT 
 USING (
@@ -151,13 +157,17 @@ USING (
 
 -- =================================================================================
 -- ORDER ITEMS
--- - Público puede insertar items de pedido.
+-- - Público puede insertar items de pedido y consultarlos en seguimiento.
 -- - Staff (admin, seller, cook) puede ver items de las comandas.
 -- - Admin y seller pueden gestionar items (POS).
 -- =================================================================================
 CREATE POLICY "Public can insert order items" 
 ON public.order_items FOR INSERT 
 WITH CHECK (true);
+
+CREATE POLICY "Public can read order items" 
+ON public.order_items FOR SELECT 
+USING (true);
 
 CREATE POLICY "Staff can read order items" 
 ON public.order_items FOR SELECT 

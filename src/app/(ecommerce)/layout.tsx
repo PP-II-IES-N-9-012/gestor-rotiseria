@@ -94,15 +94,14 @@ import { useStoreTenant } from '@/lib/useStoreTenant'
 
   useEffect(() => setMounted(true), [])
 
-        const primaryColor = restaurant?.primary_color || '#e59324'
-        const secondaryColor = restaurant?.secondary_color || '#d34e2c'
-        const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
-        const fontClass = restaurant?.font_style === 'sans' ? 'font-modern' : 'font-rustic'
-        const announcementText =
-        restaurant?.announcement_banner || '🔥 Horno encendido y cocina despachando pedidos en vivo'
-        const showAnnouncement = restaurant?.announcement_enabled !== false
-        const deliveryTime = restaurant?.estimated_delivery_time || '35-45 min'
-
+  const primaryColor = restaurant?.primary_color || '#e59324'
+  const secondaryColor = restaurant?.secondary_color || '#d34e2c'
+  const themeClass = restaurant?.theme_style ? 'theme-' + restaurant.theme_style : 'theme-rustic'
+  const fontClass = 'font-style-' + (restaurant?.font_style || 'serif')
+  const announcementText =
+    restaurant?.announcement_banner || '🔥 Horno encendido y cocina despachando pedidos en vivo'
+  const showAnnouncement = restaurant?.announcement_enabled !== false
+  const deliveryTime = restaurant?.estimated_delivery_time || '35-45 min'
         // Construir únicamente las redes sociales que fueron configuradas
         const whatsappDigits = (restaurant?.whatsapp_number || '').replace(/[^0-9]/g, '')
         const socialLinks = [

@@ -60,20 +60,40 @@ export function extractSubdomain(host: string): string | null {
 }
 
 /**
- * Tenant actual en el navegador. Orden: subdominio -> ?negocio= -> /tienda/<slug>.
+ * Tenant actual en el navegador. Orden: subdominio -> ?negocio= -> /tienda/<slug> -> sessionStorage.
  * Solo usar en el cliente.
  */
 export function getClientTenant(): string | null {
   if (typeof window === 'undefined') return null
   const fromHost = extractSubdomain(window.location.host)
-  if (fromHost) return fromHost
+  if (fromHost) {
+    try { window.sessionStorage.setItem('comandapp_active_tenant', fromHost) } catch {}
+    return fromHost
+  }
 
   const params = new URLSearchParams(window.location.search)
   const fromQuery = params.get('negocio') || params.get('subdomain')
-  if (fromQuery) return fromQuery.toLowerCase()
+  if (fromQuery) {
+    const clean = fromQuery.toLowerCase()
+    try { window.sessionStorage.setItem('comandapp_active_tenant', clean) } catch {}
+    return clean
+  }
 
   const match = window.location.pathname.match(/^\/tienda\/([^/]+)/)
-  return match ? decodeURIComponent(match[1]).toLowerCase() : null
+  if (match) {
+    const clean = decodeURIComponent(match[1]).toLowerCase()
+    try { window.sessionStorage.setItem('comandapp_active_tenant', clean) } catch {}
+    return clean
+  }
+
+  if (window.location.pathname.startsWith('/carrito') || window.location.pathname.startsWith('/seguimiento')) {
+    try {
+      const saved = window.sessionStorage.getItem('comandapp_active_tenant')
+      if (saved) return saved
+    } catch {}
+  }
+
+  return null
 }
 
 /** True si el navegador está parado en un subdominio propio de un comercio. */

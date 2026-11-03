@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock, CheckCircle2, Loader2, Flame, ChefHat, Truck, Store, RefreshCw, Check } from 'lucide-react'
+import { Clock, CheckCircle2, Loader2, Flame, ChefHat, Truck, Store, ArrowRight, RefreshCw, Check } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { getOrdersByStatus, updateOrderStatus, invalidateCache } from '@/lib/api'
 import { subscribeToStoreRealtime } from '@/lib/realtime'
@@ -16,38 +16,43 @@ export default function KitchenPage() {
   const [showCompleted, setShowCompleted] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
-    const loadOrders = useCallback(async (bustCache = false) => {
-      try {
-        if (bustCache) {
-          invalidateCache('orders')
-          invalidateCache('today_orders')
-        }
-        const data = await getOrdersByStatus(['pending', 'preparing', 'ready', 'completed'], restaurantId)
-        setOrders(data || [])
-      } catch (error) {
-        console.error("Error loading orders", error)
-      } finally {
-        setLoading(false)
+  const loadOrders = useCallback(async (bustCache = false) => {
+    try {
+      if (bustCache) {
+        invalidateCache('orders')
+        invalidateCache('today_orders')
       }
+      const data = await getOrdersByStatus(['pending', 'preparing', 'ready', 'completed'], restaurantId)
+      setOrders(data || [])
+    } catch (error) {
+      console.error('Error loading orders', error)
+    } finally {
+      setLoading(false)
+    }
   }, [restaurantId])
 
-    useEffect(() => {
-      loadOrders(false)
+  useEffect(() => {
+    loadOrders(false)
 
-      let trailingTimer: ReturnType<typeof setTimeout> | null = null
-      const unsubscribe = subscribeToStoreRealtime(restaurantId, (evt) => {
-        if (evt.type === 'new_order' || evt.type === 'order_status') {
-          loadOrders(true)
-          if (trailingTimer) clearTimeout(trailingTimer)
-          trailingTimer = setTimeout(() => loadOrders(true), 400)
-        }
-      })
-
-      return () => {
-        unsubscribe()
+    let trailingTimer: ReturnType<typeof setTimeout> | null = null
+    const unsubscribe = subscribeToStoreRealtime(restaurantId, (evt) => {
+      if (evt.type === 'new_order' || evt.type === 'order_status') {
+        loadOrders(true)
         if (trailingTimer) clearTimeout(trailingTimer)
+        trailingTimer = setTimeout(() => loadOrders(true), 400)
       }
-}, [restaurantId, loadOrders])
+    })
+
+    const pollInterval = setInterval(() => {
+      loadOrders(true)
+    }, 5000)
+
+    return () => {
+      unsubscribe()
+      clearInterval(pollInterval)
+      if (trailingTimer) clearTimeout(trailingTimer)
+    }
+  }, [restaurantId, loadOrders])
 
 const handleUpdateStatus = async (orderId: string, status: string) => {
   try {
