@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Outfit, Playfair_Display, Oswald, Courier_Prime } from 'next/font/google'
 import './globals.css'
 
@@ -8,6 +8,12 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-serif'
 const oswald = Oswald({ subsets: ['latin'], variable: '--font-oswald', display: 'swap' })
 const courierPrime = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-courier', display: 'swap' })
 
+export const viewport: Viewport = {
+  themeColor: '#151210',
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export const metadata: Metadata = {
   title: 'ComandApp | El Sistema Gastronómico Hecho en Casa',
   description: 'ComandApp: Sistema integral de gestión, comandas de cocina en vivo y e-commerce para rotiserías, casas de comida y locales gastronómicos.',
@@ -16,8 +22,14 @@ export const metadata: Metadata = {
     apple: '/apple-icon',
   },
   metadataBase: new URL('https://comandapp.com'),
+  openGraph: {
+    title: 'ComandApp | El Sistema Gastronómico Hecho en Casa',
+    description: 'Tienda online sin comisiones, Comandera de Cocina KDS en tiempo real, Punto de Venta e Inventario.',
+    siteName: 'ComandApp',
+    locale: 'es_AR',
+    type: 'website',
+  },
   other: {
-    'theme-color': '#151210',
     'msapplication-TileColor': '#d34e2c',
   },
 }
@@ -35,4 +47,3 @@ export default function RootLayout({
     </html>
   )
 }
-

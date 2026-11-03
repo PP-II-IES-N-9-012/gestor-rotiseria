@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 export interface RealtimeStoreEvent {
-  type: 'new_order' | 'order_status' | 'inventory_update'
+  type: 'new_order' | 'order_status' | 'inventory_update' | 'store_config_update' | 'product_update'
   restaurantId?: string
   orderId?: string
   totalAmount?: number
@@ -12,6 +12,12 @@ export interface RealtimeStoreEvent {
 
 const BROADCAST_TOPIC = 'comandapp-live-sync'
 const LOCAL_CHANNEL_NAME = 'comandapp_live_sync'
+const DEMO_RESTAURANT_UUID = '00000000-0000-0000-0000-000000000000'
+
+export function isLocalOnlyRestaurantId(id?: string | null): boolean {
+  if (!id) return false
+  return id === DEMO_RESTAURANT_UUID || id.startsWith('sample-') || id.startsWith('preview-')
+}
 
 type StoreEventHandler = (event: RealtimeStoreEvent) => void
 
@@ -72,8 +78,8 @@ function scheduleSharedTeardownIfIdle() {
 
 /**
  * Emite un evento en tiempo real a través de:
- * 1) Supabase Realtime Broadcast (WebSocket / REST para múltiples dispositivos y navegadores)
- * 2) BroadcastChannel del navegador (latencia 0ms entre pestañas locales incluso offline)
+ * 1) BroadcastChannel del navegador (latencia 0ms entre pestañas locales incluso offline o en Modo Demo)
+ * 2) Supabase Realtime Broadcast (WebSocket / REST para múltiples dispositivos en comercios reales)
  */
 export async function emitRealtimeStoreEvent(
   event: Omit<RealtimeStoreEvent, 'timestamp'>
@@ -83,7 +89,7 @@ export async function emitRealtimeStoreEvent(
     timestamp: Date.now()
   }
 
-  // 1. Sincronización inmediata entre pestañas locales
+  // 1. Sincronización inmediata entre pestañas locales (0ms)
   if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
     try {
       const bc = new BroadcastChannel(LOCAL_CHANNEL_NAME)
@@ -92,6 +98,11 @@ export async function emitRealtimeStoreEvent(
     } catch {
       // Ignore BroadcastChannel errors
     }
+  }
+
+  // Si es un restaurante demo/simulado, no abrir llamadas de red a Supabase
+  if (isLocalOnlyRestaurantId(event.restaurantId)) {
+    return
   }
 
   // 2. Sincronización por Supabase Realtime (WebSocket / Broadcast)
@@ -122,10 +133,10 @@ export async function emitRealtimeStoreEvent(
 }
 
 /**
- * Suscribe un componente (ej. Gerencia o Cocina) a WebSockets en tiempo real:
- * - Supabase Postgres Changes (`orders`, `order_items`, `inventory_items`)
+ * Suscribe un componente (ej. Gerencia, Cocina, Inventario o Seguimiento) a eventos en tiempo real:
+ * - Supabase Postgres Changes (`orders`, `order_items`, `inventory_items`) para tiendas reales
  * - Supabase Realtime Broadcast (`comandapp-live-sync`)
- * - BroadcastChannel local entre pestañas
+ * - BroadcastChannel local entre pestañas (instantáneo en tiendas reales y Modo Demo)
  */
 export function subscribeToStoreRealtime(
   restaurantId: string | undefined,
@@ -134,10 +145,15 @@ export function subscribeToStoreRealtime(
 ): () => void {
   let active = true
   let pgConnected = false
+  const localOnly = isLocalOnlyRestaurantId(restaurantId)
   const seenSignatures = new Map<string, number>()
 
   const updateConnectionStatus = () => {
     if (!active || !onConnectionChange) return
+    if (localOnly) {
+      onConnectionChange(true)
+      return
+    }
     onConnectionChange(pgConnected || sharedBroadcastStatus)
   }
 
@@ -159,7 +175,6 @@ export function subscribeToStoreRealtime(
     }
     seenSignatures.set(sig, now)
 
-    // Limpiar firmas viejas ocasionalmente
     if (seenSignatures.size > 100) {
       for (const [k, ts] of Array.from(seenSignatures.entries())) {
         if (now - ts > 10000) seenSignatures.delete(k)
@@ -169,7 +184,37 @@ export function subscribeToStoreRealtime(
     onEvent(evt)
   }
 
-  // 1. Canal WebSocket de Supabase Postgres Changes (instancia única por montaje para evitar colisión en Strict Mode)
+  // Canal local entre pestañas del navegador (siempre activo)
+  let localBc: BroadcastChannel | null = null
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    try {
+      localBc = new BroadcastChannel(LOCAL_CHANNEL_NAME)
+      localBc.onmessage = (msg) => {
+        if (msg?.data) {
+          forwardIfRelevant(msg.data as RealtimeStoreEvent)
+        }
+      }
+    } catch {
+      localBc = null
+    }
+  }
+
+  // En modo demo/simulador evitamos abrir canales WebSocket hacia Supabase Cloud
+  if (localOnly) {
+    updateConnectionStatus()
+    return () => {
+      active = false
+      if (localBc) {
+        try {
+          localBc.close()
+        } catch {
+          // Ignore close errors
+        }
+      }
+    }
+  }
+
+  // 1. Canal WebSocket de Supabase Postgres Changes (instancia única por montaje)
   const uid = Math.random().toString(36).slice(2, 9)
   const pgChannel = supabase
     .channel(`store-pg-${restaurantId || 'all'}-${uid}`)
@@ -251,21 +296,6 @@ export function subscribeToStoreRealtime(
   statusListeners.add(handleBroadcastStatus)
   ensureSharedBroadcastChannel()
   updateConnectionStatus()
-
-  // 3. Canal local entre pestañas del navegador
-  let localBc: BroadcastChannel | null = null
-  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-    try {
-      localBc = new BroadcastChannel(LOCAL_CHANNEL_NAME)
-      localBc.onmessage = (msg) => {
-        if (msg?.data) {
-          forwardIfRelevant(msg.data as RealtimeStoreEvent)
-        }
-      }
-    } catch {
-      localBc = null
-    }
-  }
 
   return () => {
     active = false

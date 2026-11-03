@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { extractSubdomain } from '@/lib/tenant'
+import { extractSubdomain, normalizeTenantSlug } from '@/lib/tenant'
 
 export default function proxy(request: NextRequest) {
   const url = request.nextUrl
@@ -13,7 +13,7 @@ export default function proxy(request: NextRequest) {
   // Soporte adicional: ?negocio=xxx o ?subdomain=xxx (hosts sin subdominios propios)
   const queryTenant = url.searchParams.get('negocio') || url.searchParams.get('subdomain')
   if (queryTenant && !tenantSubdomain) {
-    tenantSubdomain = queryTenant.toLowerCase()
+    tenantSubdomain = normalizeTenantSlug(queryTenant) || null
   }
 
   // Clientes con subdominio propio:
@@ -45,12 +45,11 @@ export default function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Coincidir con todas las rutas excepto:
+     * Coincidir con todas las rutas de navegación excepto:
      * 1. /api (rutas de API)
-     * 2. /_next (archivos de Next.js)
-     * 3. /_static (archivos estáticos)
-     * 4. /favicon.ico, archivos con extensión (.jpg, .png, etc.)
+     * 2. /_next y /_static (bundles e imágenes optimizadas)
+     * 3. Archivos estáticos en raíz o subcarpetas (.png, .jpg, .svg, .woff2, etc.)
      */
-    '/((?!api|_next|_static|[\\w-]+\\.\\w+).*)',
+    '/((?!api|_next|_static|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|css|js|map)$).*)',
   ],
 }

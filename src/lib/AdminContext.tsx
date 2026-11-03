@@ -17,6 +17,7 @@ export const AdminRestaurantContext = createContext<RestaurantInfo | null>(null)
 export const AdminSetRestaurantContext = createContext<((r: RestaurantInfo | null) => void) | null>(null)
 export const AdminUserRoleContext = createContext<UserRole>('admin')
 export const AdminUserProfileContext = createContext<AdminUserProfile | null>(null)
+export const AdminNavHrefContext = createContext<(path: string) => string>((p) => p)
 
 export function useAdminRestaurant() {
   return useContext(AdminRestaurantContext)
@@ -32,4 +33,8 @@ export function useAdminRole() {
 
 export function useAdminUserProfile() {
   return useContext(AdminUserProfileContext)
+}
+
+export function useAdminNavHref() {
+  return useContext(AdminNavHrefContext)
 }

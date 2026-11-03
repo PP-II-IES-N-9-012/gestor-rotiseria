@@ -128,6 +128,13 @@ export default function SettingsPage() {
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+    }
+  }, [])
 
   // Estado del formulario con todos los controles
   const [formData, setFormData] = useState<Partial<RestaurantInfo>>({
@@ -277,6 +284,10 @@ export default function SettingsPage() {
       setError('No hay un local asociado a esta sesión.')
       return
     }
+    if (!formData.accepts_cash && !formData.accepts_transfer && !formData.accepts_card) {
+      setError('Debes habilitar al menos un medio de pago (Efectivo, Transferencia o Tarjeta).')
+      return
+    }
     setLoading(true)
     setSaved(false)
     setError('')
@@ -293,7 +304,8 @@ export default function SettingsPage() {
       }
 
       setSaved(true)
-      setTimeout(() => setSaved(false), 4000)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 4000)
     } catch (err: any) {
       console.error('Error saving restaurant branding:', err)
       setError(err?.message || 'No se pudieron guardar los cambios.')
@@ -1601,6 +1613,23 @@ export default function SettingsPage() {
         </div>
 
       </form>
+
+      {/* Notificación flotante visible incluso al guardar desde el final de la página */}
+      {(saved || error) && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm animate-in fade-in slide-in-from-bottom-4">
+          {saved ? (
+            <div className="px-4 py-3.5 rounded-2xl bg-emerald-950/95 backdrop-blur-md border border-emerald-500/50 text-emerald-100 text-xs shadow-2xl flex items-center gap-2.5">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="font-semibold">¡Cambios guardados y publicados en vivo!</span>
+            </div>
+          ) : (
+            <div className="px-4 py-3.5 rounded-2xl bg-rose-950/95 backdrop-blur-md border border-rose-500/50 text-rose-100 text-xs shadow-2xl flex items-center gap-2.5">
+              <X className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="font-semibold">{error}</span>
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   )

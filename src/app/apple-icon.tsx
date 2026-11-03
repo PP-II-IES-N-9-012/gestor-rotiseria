@@ -15,6 +15,7 @@ export default function AppleIcon() {
           justifyContent: 'center',
           background: 'linear-gradient(135deg, #d34e2c 0%, #992c10 100%)',
           borderRadius: 38,
+          border: '3px solid rgba(255, 213, 168, 0.28)',
         }}
       >
         {/* Flame */}
