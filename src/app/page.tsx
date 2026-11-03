@@ -68,7 +68,6 @@ export default function LandingPage() {
 
             {/* Navigation Links */}
             <nav className="hidden lg:flex items-center gap-1 xl:gap-2 px-3 py-1.5 rounded-2xl bg-[#221914]/90 border border-[#3d2f25] text-xs xl:text-sm font-medium text-[#dcd0c5] whitespace-nowrap shadow-inner">
-              <a href="#solucion" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">¿Por qué ComandApp?</a>
               <a href="#modulos" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Módulos</a>
               <a href="#subdominio" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Tu Subdominio</a>
               <a href="#precios" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Planes</a>
@@ -108,7 +107,6 @@ export default function LandingPage() {
           {mobileMenuOpen && (
             <div className="lg:hidden pb-4 pt-2 border-t border-[#3d2f25] space-y-2 animate-in fade-in">
               <div className="grid grid-cols-2 gap-2 text-xs font-medium text-[#dcd0c5]">
-                <a href="#solucion" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">¿Por qué ComandApp?</a>
                 <a href="#modulos" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Módulos</a>
                 <a href="#subdominio" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Tu Subdominio</a>
                 <a href="#precios" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Planes</a>
@@ -463,76 +461,6 @@ export default function LandingPage() {
               </div>
 
             </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* WHY COMANDAPP SECTION */}
-      <section id="solucion" className="py-20 md:py-28 border-b border-[#382b21] bg-[#1a1410]/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="badge-rustic mb-3 text-xs">Hecho por y para gastronómicos</span>
-            <h2 className="text-3xl sm:text-5xl font-rustic font-bold text-white mb-4">
-              ¿Por qué las apps tradicionales te dejan sin margen?
-            </h2>
-            <p className="text-[#c7af9a] text-base leading-relaxed">
-              Las plataformas de delivery cobran comisiones exorbitantes de hasta un 35% y se quedan con los datos de tus propios clientes. 
-              <strong> ComandApp cambia las reglas de juego.</strong>
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-            {/* Card 1 */}
-            <div className="bg-[#1f1712] border border-[#3d2f25] p-8 rounded-3xl hover:border-[#e59324]/40 transition-all duration-300 shadow-xl flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#3b2114] border border-[#e59324]/30 flex items-center justify-center text-[#e59324] mb-6">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h3 className="font-rustic font-bold text-2xl text-white mb-3">0% Comisiones por Pedido</h3>
-                <p className="text-sm text-[#bfa38c] leading-relaxed mb-4">
-                  Todo lo que cocinas y vendes es 100% tuyo. Sin tarifas ocultas por cada comanda. Pagas una suscripción plana y transparente.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#31251e] text-xs text-[#e59324] font-semibold flex items-center gap-1">
-                <span>Tu trabajo, tu ganancia</span>
-              </div>
-            </div>
-
-            {/* Card 2 */}
-            <div className="bg-[#1f1712] border border-[#3d2f25] p-8 rounded-3xl hover:border-[#e59324]/40 transition-all duration-300 shadow-xl flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#3b2114] border border-[#e59324]/30 flex items-center justify-center text-[#e59324] mb-6">
-                  <Flame className="w-6 h-6" />
-                </div>
-                <h3 className="font-rustic font-bold text-2xl text-white mb-3">Ritmo Real de Cocina</h3>
-                <p className="text-sm text-[#bfa38c] leading-relaxed mb-4">
-                  El sistema está diseñado para la grasa, el apuro y el calor de la cocina. Botones gigantes, letras grandes y sonidos para que los cocineros no pierdan tiempo.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#31251e] text-xs text-[#e59324] font-semibold flex items-center gap-1">
-                <span>Cero complicaciones técnicas</span>
-              </div>
-            </div>
-
-            {/* Card 3 */}
-            <div className="bg-[#1f1712] border border-[#3d2f25] p-8 rounded-3xl hover:border-[#e59324]/40 transition-all duration-300 shadow-xl flex flex-col justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#3b2114] border border-[#e59324]/30 flex items-center justify-center text-[#e59324] mb-6">
-                  <Globe className="w-6 h-6" />
-                </div>
-                <h3 className="font-rustic font-bold text-2xl text-white mb-3">Tu Marca Propia</h3>
-                <p className="text-sm text-[#bfa38c] leading-relaxed mb-4">
-                  Cada local tiene su propio subdominio como <code>doncarlos.comandapp.com</code>. Tus clientes te buscan a ti, no a una lista de competidores en una app genérica.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#31251e] text-xs text-[#e59324] font-semibold flex items-center gap-1">
-                <span>Fideliza a tu barrio</span>
-              </div>
-            </div>
-
           </div>
 
         </div>
