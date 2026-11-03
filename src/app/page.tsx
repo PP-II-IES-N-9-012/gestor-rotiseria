@@ -70,7 +70,7 @@ export default function LandingPage() {
             <nav className="hidden lg:flex items-center gap-1 xl:gap-2 px-3 py-1.5 rounded-2xl bg-[#221914]/90 border border-[#3d2f25] text-xs xl:text-sm font-medium text-[#dcd0c5] whitespace-nowrap shadow-inner">
               <a href="#modulos" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Módulos</a>
               <a href="#subdominio" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Tu Subdominio</a>
-              <a href="#precios" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Planes</a>
+              <a href="#precios" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Precios</a>
               <a href="#testimonios" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Casos Reales</a>
               <a href="#faq" className="px-3 py-1.5 rounded-xl hover:bg-[#31241c] hover:text-[#e59324] transition-all">Preguntas</a>
             </nav>
@@ -109,7 +109,7 @@ export default function LandingPage() {
               <div className="grid grid-cols-2 gap-2 text-xs font-medium text-[#dcd0c5]">
                 <a href="#modulos" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Módulos</a>
                 <a href="#subdominio" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Tu Subdominio</a>
-                <a href="#precios" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Planes</a>
+                <a href="#precios" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Precios</a>
                 <a href="#testimonios" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Casos Reales</a>
                 <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-[#241a14] hover:text-[#e59324] border border-[#3d2f25]">Preguntas</a>
               </div>
@@ -520,131 +520,76 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING SECTION */}
+            {/* PRICING SECTION */}
       <section id="precios" className="py-20 md:py-28 border-b border-[#382b21] bg-[#1a1410]/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="badge-rustic mb-3 text-xs">Precios Honestos</span>
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="badge-rustic mb-3 text-xs">Tarifa Única & Transparente</span>
             <h2 className="text-3xl sm:text-5xl font-rustic font-bold text-white mb-4">
-              Planes pensados para la realidad gastronómica
+              Plan pensado para la realidad gastronómica
             </h2>
             <p className="text-[#c7af9a] text-sm md:text-base leading-relaxed">
               Tarifa mensual fija en pesos. Sin porcentaje sobre tus ventas. Sin sorpresas a fin de mes.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+          <div className="max-w-xl mx-auto">
             
-            {/* Plan 1 */}
-            <div className="bg-[#1f1712] border border-[#3d2f25] p-8 rounded-3xl flex flex-col justify-between shadow-xl">
-              <div>
-                <span className="text-xs text-[#a88a70] font-semibold uppercase tracking-wider">Inicial</span>
-                <h3 className="font-rustic font-bold text-2xl text-white mt-1 mb-2">Rotisería de Barrio</h3>
-                <p className="text-xs text-[#bfa38c] mb-6">Para locales que quieren empezar a recibir pedidos online organizados.</p>
-                
-                <div className="mb-6 pb-6 border-b border-[#31251e]">
-                  <span className="text-4xl font-rustic font-bold text-white">$14.900</span>
-                  <span className="text-xs text-[#8c6f59]"> / mes</span>
-                </div>
-
-                <ul className="space-y-3 text-xs text-[#dcd0c5] mb-8">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Tienda Online con Subdominio Propio
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Hasta 300 pedidos mensuales
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Carta Digital con fotos y categorías
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> 0% de comisiones
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Soporte por WhatsApp
-                  </li>
-                </ul>
-              </div>
-
-              <Link href="/login" className="btn-secondary w-full text-center py-3 text-xs font-bold">
-                Elegir Plan Inicial
-              </Link>
-            </div>
-
-            {/* Plan 2: HIGHLIGHT */}
-            <div className="bg-[#241a14] border-2 border-[#e59324] p-8 rounded-3xl flex flex-col justify-between shadow-2xl relative">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#e59324] text-[#151210] text-[11px] font-bold uppercase tracking-wider py-1 px-4 rounded-full shadow-md">
-                ⭐ Más Elegido por Rotiserías
+            {/* Plan: COCINA A PLENO */}
+            <div className="bg-[#241a14] border-2 border-[#e59324] p-8 sm:p-10 rounded-3xl flex flex-col justify-between shadow-2xl relative">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#e59324] text-[#151210] text-[11px] font-bold uppercase tracking-wider py-1 px-4 rounded-full shadow-md whitespace-nowrap">
+                ⭐ Servicio Todo Incluido
               </div>
 
               <div>
-                <span className="text-xs text-[#e59324] font-semibold uppercase tracking-wider">Integral</span>
-                <h3 className="font-rustic font-bold text-2xl text-white mt-1 mb-2">Cocina a Pleno</h3>
-                <p className="text-xs text-[#bfa38c] mb-6">El sistema completo: Tienda, Comandera KDS y Punto de Venta en mostrador.</p>
+                <span className="text-xs text-[#e59324] font-semibold uppercase tracking-wider">Plan Integral</span>
+                <h3 className="font-rustic font-bold text-3xl text-white mt-1 mb-2">Cocina a Pleno</h3>
+                <p className="text-xs sm:text-sm text-[#bfa38c] mb-6">El sistema completo para tu rotisería: Tienda Online, Comandera KDS y Punto de Venta en mostrador.</p>
                 
                 <div className="mb-6 pb-6 border-b border-[#3d2f25]">
-                  <span className="text-4xl font-rustic font-bold text-[#e59324]">$24.900</span>
-                  <span className="text-xs text-[#8c6f59]"> / mes</span>
+                  <span className="text-4xl sm:text-5xl font-rustic font-bold text-[#e59324]">$24.900</span>
+                  <span className="text-xs sm:text-sm text-[#8c6f59]"> / mes</span>
                 </div>
 
-                <ul className="space-y-3 text-xs text-[#fcf9f5] mb-8">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#e59324] shrink-0" /> <strong>Pedidos Ilimitados</strong> sin costo extra
+                <ul className="space-y-3.5 text-xs sm:text-sm text-[#fcf9f5] mb-8">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span><strong>Pedidos Ilimitados</strong> sin costo extra</span>
                   </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#e59324] shrink-0" /> <strong>Comandera de Cocina KDS</strong> en tiempo real
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span><strong>Comandera de Cocina KDS</strong> en tiempo real</span>
                   </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#e59324] shrink-0" /> <strong>Punto de Venta Mostrador (POS)</strong>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span><strong>Punto de Venta Mostrador (POS)</strong></span>
                   </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#e59324] shrink-0" /> <strong>Control de Inventario</strong> y alertas críticas
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span><strong>Control de Inventario</strong> y alertas de stock</span>
                   </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#e59324] shrink-0" /> Seguimiento en vivo para los clientes
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span><strong>Tienda Online con Subdominio Propio</strong></span>
                   </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#e59324] shrink-0" /> 0% de comisiones por orden
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span>Seguimiento en vivo para los clientes</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span>0% de comisiones por orden</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-[#e59324] shrink-0" />
+                    <span>Soporte personalizado por WhatsApp</span>
                   </li>
                 </ul>
               </div>
 
-              <Link href="/login" className="btn-amber w-full text-center py-3.5 text-xs font-bold shadow-lg">
+              <Link href="/login" className="btn-amber w-full text-center py-4 text-xs sm:text-sm font-bold shadow-lg">
                 Comenzar Prueba Gratis (14 Días)
-              </Link>
-            </div>
-
-            {/* Plan 3 */}
-            <div className="bg-[#1f1712] border border-[#3d2f25] p-8 rounded-3xl flex flex-col justify-between shadow-xl">
-              <div>
-                <span className="text-xs text-[#a88a70] font-semibold uppercase tracking-wider">Multi-Local</span>
-                <h3 className="font-rustic font-bold text-2xl text-white mt-1 mb-2">Franquicias & Bodegones</h3>
-                <p className="text-xs text-[#bfa38c] mb-6">Para negocios con varias sucursales o alto volumen diario.</p>
-                
-                <div className="mb-6 pb-6 border-b border-[#31251e]">
-                  <span className="text-4xl font-rustic font-bold text-white">$44.900</span>
-                  <span className="text-xs text-[#8c6f59]"> / mes</span>
-                </div>
-
-                <ul className="space-y-3 text-xs text-[#dcd0c5] mb-8">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Múltiples sucursales y subdominios
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Usuarios ilimitados (Cajeros, Cocineros, Gerentes)
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Reportes consolidados y métricas avanzadas
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" /> Asesor gastronómico dedicado
-                  </li>
-                </ul>
-              </div>
-
-              <Link href="/login" className="btn-secondary w-full text-center py-3 text-xs font-bold">
-                Consultar por Franquicias
               </Link>
             </div>
 
