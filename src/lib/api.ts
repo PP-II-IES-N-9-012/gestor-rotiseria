@@ -310,6 +310,13 @@ export async function uploadRestaurantMedia(
   return dataUrl
 }
 
+export function isSampleRestaurantId(id?: string): boolean {
+  if (!id) return true
+  const clean = id.trim().toLowerCase()
+  if (clean === FALLBACK_RESTAURANT.id.toLowerCase() || clean === 'demo' || clean === 'don-carlos' || clean === 'default') return true
+  return SAMPLE_RESTAURANTS.some(r => r.id.toLowerCase() === clean || r.subdomain.toLowerCase() === clean)
+}
+
 export const SAMPLE_RESTAURANTS: RestaurantInfo[] = [
   {
     id: 'b326adf8-3a44-4736-bf3e-06e1e6bba946',
@@ -598,17 +605,9 @@ export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantI
     r => (idOrSubdomain && r.subdomain.toLowerCase() === idOrSubdomain.toLowerCase()) || r.id === idOrSubdomain
   )
 
-  if (!idOrSubdomain) {
-    const query = supabase
-      .from('restaurants')
-      .select('*')
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => data || FALLBACK_RESTAURANT)
-
-    const result = await withTimeout(query, 4000, FALLBACK_RESTAURANT)
-    const merged = mergeBranding(result)
-    setCached(cacheKey, merged, 15)
+  if (!idOrSubdomain || idOrSubdomain === 'demo' || idOrSubdomain === 'default' || idOrSubdomain.toLowerCase() === 'don-carlos') {
+    const merged = mergeBranding(FALLBACK_RESTAURANT)
+    setCached(cacheKey, merged, 30)
     return merged
   }
 
@@ -657,7 +656,7 @@ export async function getRestaurantStrict(subdomain: string): Promise<Restaurant
   const cached = getCached<RestaurantInfo | null>(cacheKey)
   if (cached !== null) return cached ? mergeBranding(cached) : null
 
-  const sampleMatch = SAMPLE_RESTAURANTS.find(r => r.subdomain.toLowerCase() === slug) || null
+  const sampleMatch = SAMPLE_RESTAURANTS.find(r => r.subdomain.toLowerCase() === slug) || (slug === 'don-carlos' || slug === 'demo' ? FALLBACK_RESTAURANT : null)
 
   const query = Promise.resolve(
     supabase.from('restaurants').select('*').ilike('subdomain', slug).maybeSingle()
@@ -889,6 +888,7 @@ const inMemoryRecipes = new Map<string, { inventory_item_id: string; quantity: n
 
 // --- Admin Product CRUD ---
 export async function getAdminProducts(restaurantId?: string): Promise<ProductItem[]> {
+  const isSample = isSampleRestaurantId(restaurantId)
   const cacheKey = `admin_products:${restaurantId || 'all'}`
   const cached = getCached<ProductItem[]>(cacheKey)
   if (cached) return cached.map(enrichProductWithBadge)
@@ -909,7 +909,7 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
     )
   `)
 
-  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+  if (restaurantId && !isSample) builder = builder.eq('restaurant_id', restaurantId)
 
   const query = builder.order('name', { ascending: true }).then(async ({ data, error }) => {
     // Si la relación falla (por ejemplo tabla product_ingredients no existe aún en Supabase)
@@ -919,7 +919,7 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
       if (restaurantId) plainBuilder = plainBuilder.eq('restaurant_id', restaurantId)
       const { data: plainData } = await plainBuilder.order('name', { ascending: true })
 
-      const list = plainData || (restaurantId ? [] : ARTISANAL_FALLBACK_PRODUCTS)
+      const list = plainData && plainData.length > 0 ? plainData : fallback
       return list.map((p: any) => enrichProductWithBadge({
         ...p,
         product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
@@ -942,10 +942,10 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
         return enrichProductWithBadge(p)
       })
     }
-    return restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
+    return fallback
   })
 
-  const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
+  const fallback = (isSample || !restaurantId) ? (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[]) : []
   const result = await withTimeout(query, 4000, fallback)
   setCached(cacheKey, result, 15)
   return result
@@ -2023,6 +2023,7 @@ export async function getOrdersByPeriod(
   restaurantId?: string,
   period: TimePeriod = 'today'
 ): Promise<any[]> {
+  const isSample = isSampleRestaurantId(restaurantId)
   const cacheKey = `orders_period:${restaurantId || 'all'}:${period}`
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
@@ -2061,7 +2062,7 @@ export async function getOrdersByPeriod(
 
   const recentPool = getRecentLocalOrders()
   const localMatches = recentPool.filter((o) => {
-    if (restaurantId && o.restaurant_id && o.restaurant_id !== restaurantId) return false
+    if (restaurantId && !isSample && o.restaurant_id && o.restaurant_id !== restaurantId) return false
     if (!startDate) return true
     return new Date(o.created_at) >= startDate
   })
@@ -2083,10 +2084,10 @@ export async function getOrdersByPeriod(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
     }
-    return restaurantId ? localMatches : fallback
+    return fallback
   })
 
-  const result = await withTimeout(query, 4000, restaurantId ? localMatches : fallback)
+  const result = await withTimeout(query, 4000, fallback)
   setCached(cacheKey, result, 15)
   return result
 }

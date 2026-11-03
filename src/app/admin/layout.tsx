@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
-import { getRestaurant, getRestaurantStrict, invalidateCache, type RestaurantInfo } from '@/lib/api'
+import { getRestaurant, getRestaurantStrict, FALLBACK_RESTAURANT, invalidateCache, type RestaurantInfo } from '@/lib/api'
 import { 
   AdminRestaurantContext, 
   AdminSetRestaurantContext,
@@ -90,6 +90,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           localStorage.setItem('demo_auth', 'true')
         }
 
+        if (isDemo) {
+          const targetTenant = hostTenant || 'don-carlos'
+          const demoRestaurant = await getRestaurant(targetTenant)
+          if (cancelled) return
+          setRestaurant(demoRestaurant || FALLBACK_RESTAURANT)
+          setUserRole('admin')
+          setUserProfile({
+            id: 'demo-admin-user',
+            restaurant_id: demoRestaurant?.id || FALLBACK_RESTAURANT.id,
+            role: 'admin',
+            full_name: 'Administrador Demo'
+          })
+          setLoading(false)
+          return
+        }
+
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
           setTimeout(() => resolve({ data: { session: null } }), 3500)
         )
@@ -142,15 +158,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             setLoading(false)
             return
           }
-        }
-
-        if (isDemo) {
-          const demoRestaurant = hostTenant ? await getRestaurantStrict(hostTenant) : null
-          if (cancelled) return
-          setRestaurant(demoRestaurant)
-          setUserRole('admin')
-          setLoading(false)
-          return
         }
 
         router.push('/login')

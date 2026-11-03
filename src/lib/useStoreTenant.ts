@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { getRestaurant, getRestaurantStrict, mergeBranding, invalidateCache, type RestaurantInfo } from '@/lib/api'
+import { getRestaurant, mergeBranding, invalidateCache, type RestaurantInfo } from '@/lib/api'
 import { getClientTenant, tenantPath } from '@/lib/tenant'
 import { supabase } from '@/lib/supabase'
 
@@ -24,13 +24,13 @@ export function useStoreTenant() {
 
     const load = async () => {
       if (!slug) {
-        const def = await getRestaurant()
+        const def = await getRestaurant('don-carlos')
         if (cancelled) return
         setRestaurant(mergeBranding(def))
         setReady(true)
         return
       }
-      const r = await getRestaurantStrict(slug)
+      const r = await getRestaurant(slug)
       if (cancelled) return
       setRestaurant(r ? mergeBranding(r) : null)
       setReady(true)

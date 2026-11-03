@@ -189,15 +189,15 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onClick={() => {
-                const hostTenant = getClientTenant()
-                const targetSubdomain = hostTenant || 'don-carlos'
-                if (!hostTenant && matchRootDomain(window.location.host)) {
-                  window.location.href = buildTenantUrl(targetSubdomain, '/admin?demo=true')
-                } else {
-                  localStorage.setItem('demo_auth', 'true')
-                  router.push('/admin?demo=true')
-                }
+              onClick={async () => {
+                try {
+                  await supabase.auth.signOut()
+                } catch {}
+                localStorage.setItem('demo_auth', 'true')
+                try {
+                  window.sessionStorage.setItem('comandapp_active_tenant', 'don-carlos')
+                } catch {}
+                router.push('/admin?demo=true')
               }}
               className="w-full bg-[#2a1d15] hover:bg-[#38261b] text-[#e59324] border border-[#e59324]/30 py-2.5 text-xs font-semibold rounded-xl flex justify-center items-center gap-1.5 transition-all"
             >
