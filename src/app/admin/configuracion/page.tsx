@@ -31,7 +31,7 @@ import {
   Percent,
   Sliders
 } from 'lucide-react'
-import { updateRestaurantBranding, uploadRestaurantMedia, type RestaurantInfo } from '@/lib/api'
+import { updateRestaurantBranding, uploadRestaurantMedia, getStoreOpenStatus, type RestaurantInfo } from '@/lib/api'
 import { useAdminRestaurant, useSetAdminRestaurant } from '@/lib/AdminContext'
 import { buildTenantUrl } from '@/lib/tenant'
 
@@ -153,6 +153,18 @@ export default function SettingsPage() {
     min_order_amount: 0,
     delivery_cost: 'A coordinar',
     
+    // Horario automático
+    auto_schedule_enabled: false,
+    schedule_open_time: '19:30',
+    schedule_close_time: '23:45',
+    schedule_second_shift_enabled: false,
+    schedule_open_time_2: '11:30',
+    schedule_close_time_2: '15:00',
+    schedule_days: '0,2,3,4,5,6',
+    
+    // Etiquetas de productos
+    show_product_badges: true,
+    
     // Medios de pago
     accepts_cash: true,
     accepts_transfer: true,
@@ -196,6 +208,14 @@ export default function SettingsPage() {
       closed_message: restaurant.closed_message || 'Horno cerrado por el momento. ¡Abrimos pronto!',
       min_order_amount: restaurant.min_order_amount || 0,
       delivery_cost: restaurant.delivery_cost || 'A coordinar',
+      auto_schedule_enabled: Boolean(restaurant.auto_schedule_enabled),
+      schedule_open_time: restaurant.schedule_open_time || '19:30',
+      schedule_close_time: restaurant.schedule_close_time || '23:45',
+      schedule_second_shift_enabled: Boolean(restaurant.schedule_second_shift_enabled),
+      schedule_open_time_2: restaurant.schedule_open_time_2 || '11:30',
+      schedule_close_time_2: restaurant.schedule_close_time_2 || '15:00',
+      schedule_days: restaurant.schedule_days !== undefined ? restaurant.schedule_days : '0,2,3,4,5,6',
+      show_product_badges: restaurant.show_product_badges !== false,
       accepts_cash: restaurant.accepts_cash !== false,
       accepts_transfer: restaurant.accepts_transfer !== false,
       transfer_alias: restaurant.transfer_alias || '',
@@ -281,6 +301,30 @@ export default function SettingsPage() {
   const currentTheme = THEME_PRESETS.find(t => t.id === formData.theme_style) || THEME_PRESETS[0]
   const activePrimary = formData.primary_color || '#e59324'
   const activeSecondary = formData.secondary_color || '#d34e2c'
+  const liveStoreStatus = getStoreOpenStatus(formData as RestaurantInfo)
+
+  const WEEK_DAYS = [
+    { id: '1', label: 'Lun' },
+    { id: '2', label: 'Mar' },
+    { id: '3', label: 'Mié' },
+    { id: '4', label: 'Jue' },
+    { id: '5', label: 'Vie' },
+    { id: '6', label: 'Sáb' },
+    { id: '0', label: 'Dom' },
+  ]
+
+  const selectedDays = (formData.schedule_days ?? '0,2,3,4,5,6')
+    .split(',')
+    .map(d => d.trim())
+    .filter(Boolean)
+
+  const toggleScheduleDay = (dayId: string) => {
+    const exists = selectedDays.includes(dayId)
+    const next = exists
+      ? selectedDays.filter(d => d !== dayId)
+      : [...selectedDays, dayId]
+    setFormData({ ...formData, schedule_days: next.join(',') })
+  }
 
   // Opacidad del banner de portada
   const overlayGradient = formData.hero_overlay_opacity === 'light'
@@ -361,10 +405,10 @@ export default function SettingsPage() {
           </div>
 
           {/* Estado del local en la previa */}
-          {!formData.is_store_open && (
+          {!liveStoreStatus.isOpen && (
             <div className="py-2 px-4 rounded-xl bg-rose-950/80 border border-rose-600/40 text-rose-200 text-xs text-center font-medium flex items-center justify-center gap-2">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              <span>🔴 Local Cerrado: {formData.closed_message}</span>
+              <span>🔴 Local Cerrado: {liveStoreStatus.message}</span>
             </div>
           )}
 
@@ -504,12 +548,20 @@ export default function SettingsPage() {
               <div className="space-y-1">
                 <p className="text-sm font-bold text-white flex items-center gap-2">
                   <span 
-                    className={`w-3 h-3 rounded-full ${formData.is_store_open ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} 
+                    className={`w-3 h-3 rounded-full ${liveStoreStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} 
                   />
-                  <span>Estado del Local: {formData.is_store_open ? 'Abierto y Recibiendo Pedidos' : 'Cerrado Temporalmente'}</span>
+                  <span>
+                    Estado Actual en Tienda: {liveStoreStatus.isOpen ? 'Abierto y Recibiendo Pedidos' : 'Cerrado (Pedidos Bloqueados)'}
+                  </span>
                 </p>
                 <p className="text-xs text-[color:var(--store-text-faint)]">
-                  Si desactivas esta opción, tus clientes verán un aviso de local cerrado y no podrán finalizar pedidos.
+                  {!formData.is_store_open
+                    ? 'Cerrado manualmente por el administrador.'
+                    : formData.auto_schedule_enabled
+                    ? liveStoreStatus.isOpen
+                      ? 'Abierto automáticamente según tu horario programado.'
+                      : `Cerrado automáticamente por horario: ${liveStoreStatus.message}`
+                    : 'Interruptor general activo. Si lo apagas, el local permanecerá cerrado aunque esté en horario.'}
                 </p>
               </div>
 
@@ -522,22 +574,180 @@ export default function SettingsPage() {
                     : 'bg-rose-600/30 text-rose-300 border border-rose-500/50 hover:bg-rose-600/40'
                 }`}
               >
-                {formData.is_store_open ? '🟢 Local Abierto' : '🔴 Local Cerrado'}
+                {formData.is_store_open ? '🟢 Interruptor General: ON' : '🔴 Cerrado Manualmente'}
               </button>
             </div>
 
-            {!formData.is_store_open && (
-              <div className="sm:col-span-2 space-y-1.5 animate-in fade-in">
-                <label className="text-xs font-semibold text-rose-300">Mensaje para tus Clientes (cuando está cerrado)</label>
-                <input
-                  type="text"
-                  value={formData.closed_message}
-                  onChange={(e) => setFormData({ ...formData, closed_message: e.target.value })}
-                  placeholder="Ej: Abrimos hoy a las 19:30 hs. ¡Puedes dejarnos tu pedido programado!"
-                  className="w-full bg-[color:var(--store-subtle-bg)] border border-rose-900/50 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500"
-                />
+            {/* APERTURA Y CIERRE AUTOMÁTICO POR HORARIO */}
+            <div className="sm:col-span-2 bg-[color:var(--store-subtle-bg)] p-5 rounded-2xl border border-[color:var(--store-border)] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4" style={{ color: activePrimary }} />
+                    <span>Apertura y Cierre Automático por Horario</span>
+                  </p>
+                  <p className="text-xs text-[color:var(--store-text-faint)]">
+                    Abre y cierra tu tienda automáticamente según el día y la hora. Fuera de este horario no se permitirán pedidos.
+                  </p>
+                </div>
+
+                <label className="inline-flex items-center gap-2 cursor-pointer shrink-0 bg-black/30 px-3.5 py-2 rounded-xl border border-white/10">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.auto_schedule_enabled)}
+                    onChange={(e) => setFormData({ ...formData, auto_schedule_enabled: e.target.checked })}
+                    className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-white">
+                    {formData.auto_schedule_enabled ? 'Horario Automático Activo' : 'Activar Horario Automático'}
+                  </span>
+                </label>
               </div>
-            )}
+
+              {formData.auto_schedule_enabled && (
+                <div className="space-y-4 pt-3 border-t border-[color:var(--store-border)] animate-in fade-in">
+                  {/* Días de apertura */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">
+                      Días que abre el local
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEK_DAYS.map((day) => {
+                        const isSelected = selectedDays.includes(day.id)
+                        return (
+                          <button
+                            key={day.id}
+                            type="button"
+                            onClick={() => toggleScheduleDay(day.id)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                              isSelected
+                                ? 'text-white shadow-md'
+                                : 'bg-black/30 text-[color:var(--store-text-faint)] border-white/10 hover:text-white'
+                            }`}
+                            style={
+                              isSelected
+                                ? {
+                                    backgroundColor: activePrimary,
+                                    borderColor: activePrimary,
+                                  }
+                                : undefined
+                            }
+                          >
+                            {day.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Turno Principal */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-black/25 p-3.5 rounded-xl border border-white/10 space-y-2.5">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🌙 Turno Principal (o Único)</span>
+                      </span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-[color:var(--store-text-muted)]">Hora Apertura</label>
+                          <input
+                            type="time"
+                            value={formData.schedule_open_time || '19:30'}
+                            onChange={(e) => setFormData({ ...formData, schedule_open_time: e.target.value })}
+                            className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-[color:var(--store-text-muted)]">Hora Cierre</label>
+                          <input
+                            type="time"
+                            value={formData.schedule_close_time || '23:45'}
+                            onChange={(e) => setFormData({ ...formData, schedule_close_time: e.target.value })}
+                            className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Segundo Turno (Opcional Mediodía) */}
+                    <div className="bg-black/25 p-3.5 rounded-xl border border-white/10 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">☀️ Segundo Turno (Ej: Mediodía)</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(formData.schedule_second_shift_enabled)}
+                          onChange={(e) => setFormData({ ...formData, schedule_second_shift_enabled: e.target.checked })}
+                          className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
+                        />
+                      </div>
+
+                      {formData.schedule_second_shift_enabled ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-[color:var(--store-text-muted)]">Hora Apertura 2</label>
+                            <input
+                              type="time"
+                              value={formData.schedule_open_time_2 || '11:30'}
+                              onChange={(e) => setFormData({ ...formData, schedule_open_time_2: e.target.value })}
+                              className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-[color:var(--store-text-muted)]">Hora Cierre 2</label>
+                            <input
+                              type="time"
+                              value={formData.schedule_close_time_2 || '15:00'}
+                              onChange={(e) => setFormData({ ...formData, schedule_close_time_2: e.target.value })}
+                              className="w-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-[color:var(--store-text-faint)] pt-2">
+                          Activa esta casilla si cortas al mediodía y vuelves a abrir a la noche (doble turno).
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="sm:col-span-2 space-y-1.5">
+              <label className="text-xs font-semibold text-[color:var(--store-text-soft)]">
+                Mensaje personalizado cuando el local está cerrado
+              </label>
+              <input
+                type="text"
+                value={formData.closed_message}
+                onChange={(e) => setFormData({ ...formData, closed_message: e.target.value })}
+                placeholder="Ej: Horno cerrado por el momento. ¡Abrimos pronto!"
+                className="w-full bg-[color:var(--store-subtle-bg)] border border-[color:var(--store-border)] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)]"
+              />
+            </div>
+
+            {/* Mostrar u ocultar etiquetas en productos */}
+            <div className="sm:col-span-2 bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" style={{ color: activePrimary }} />
+                  <span>Etiquetas Destacadas en Productos (&quot;¡Nuevo!&quot;, &quot;Oferta&quot;, &quot;Más pedido&quot;)</span>
+                </p>
+                <p className="text-[11px] text-[color:var(--store-text-faint)]">
+                  Puedes elegir la etiqueta de cada plato desde la sección &quot;Productos&quot;, o desactivarlas todas desde aquí para que no se muestren en la tienda.
+                </p>
+              </div>
+              <label className="inline-flex items-center gap-2 cursor-pointer shrink-0 bg-black/30 px-3.5 py-2 rounded-xl border border-white/10">
+                <input
+                  type="checkbox"
+                  checked={formData.show_product_badges !== false}
+                  onChange={(e) => setFormData({ ...formData, show_product_badges: e.target.checked })}
+                  className="w-4 h-4 accent-[var(--brand-primary,#e59324)] rounded cursor-pointer"
+                />
+                <span className="text-xs font-bold text-white">
+                  {formData.show_product_badges !== false ? 'Mostrar etiquetas' : 'Ocultar todas'}
+                </span>
+              </label>
+            </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[color:var(--store-text-soft)] flex items-center gap-1.5">

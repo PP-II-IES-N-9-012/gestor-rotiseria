@@ -26,6 +26,8 @@ interface ProductDetailModalProps {
   secondaryColor?: string
   cashDiscountPercentage?: number
   deliveryTime?: string
+  showProductBadges?: boolean
+  isStoreOpen?: boolean
 }
 
 export default function ProductDetailModal({
@@ -35,7 +37,9 @@ export default function ProductDetailModal({
   primaryColor = '#e59324',
   secondaryColor = '#d34e2c',
   cashDiscountPercentage = 0,
-  deliveryTime = '35-45 min'
+  deliveryTime = '35-45 min',
+  showProductBadges = true,
+  isStoreOpen = true
 }: ProductDetailModalProps) {
   const addItem = useCartStore(state => state.addItem)
   const [quantity, setQuantity] = useState(1)
@@ -161,17 +165,20 @@ export default function ProductDetailModal({
             <span>{product.category}</span>
           </div>
 
-          {/* Artisanal Badge on bottom left */}
-          <div 
-            className="absolute bottom-4 left-4 backdrop-blur-md px-3 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 shadow-lg text-[#fcf9f5]"
-            style={{
-              backgroundColor: 'rgba(30, 23, 19, 0.9)',
-              borderColor: `${primaryColor}40`
-            }}
-          >
-            <Sparkles className="w-3.5 h-3.5" style={{ color: primaryColor }} />
-            <span>Receta Casera & Sabor Tradicional</span>
-          </div>
+          {/* Custom Badge on bottom left */}
+          {showProductBadges && product.badge && product.badge.trim() !== '' && (
+            <div 
+              className="absolute bottom-4 left-4 backdrop-blur-md px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 shadow-lg text-[#fcf9f5]"
+              style={{
+                backgroundColor: 'rgba(30, 23, 19, 0.92)',
+                borderColor: `${primaryColor}55`,
+                color: primaryColor
+              }}
+            >
+              <Sparkles className="w-3.5 h-3.5" style={{ color: primaryColor }} />
+              <span>{product.badge}</span>
+            </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN: Description, Price & Actions */}
@@ -327,20 +334,25 @@ export default function ProductDetailModal({
             {/* Add to Cart CTA Button */}
             <button
               onClick={handleAddToCart}
+              disabled={!isStoreOpen}
               style={
-                added
+                !isStoreOpen || added
                   ? undefined
                   : {
                       background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`
                     }
               }
-              className={`w-full py-3.5 px-6 rounded-2xl font-bold transition-all duration-200 active:scale-95 shadow-xl flex items-center justify-center gap-2.5 ${
-                added 
-                  ? 'bg-emerald-600 text-white shadow-emerald-950/40' 
-                  : 'text-white shadow-black/40 border border-white/10 hover:brightness-110'
+              className={`w-full py-3.5 px-6 rounded-2xl font-bold transition-all duration-200 shadow-xl flex items-center justify-center gap-2.5 ${
+                !isStoreOpen
+                  ? 'bg-black/40 text-white/45 border border-white/10 cursor-not-allowed'
+                  : added 
+                    ? 'bg-emerald-600 text-white shadow-emerald-950/40 active:scale-95' 
+                    : 'text-white shadow-black/40 border border-white/10 hover:brightness-110 active:scale-95'
               }`}
             >
-              {added ? (
+              {!isStoreOpen ? (
+                <span className="text-sm font-bold">🔒 Local cerrado fuera del horario de atención</span>
+              ) : added ? (
                 <>
                   <Check className="w-5 h-5 animate-in zoom-in" />
                   <span className="text-base font-bold">

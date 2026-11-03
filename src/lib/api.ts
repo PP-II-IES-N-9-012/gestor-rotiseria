@@ -39,6 +39,136 @@ export interface RestaurantInfo {
   hero_cta_text?: string
   hero_overlay_opacity?: 'dark' | 'medium' | 'light'
   footer_custom_text?: string
+
+  // Horario automático de apertura y cierre por local
+  auto_schedule_enabled?: boolean
+  schedule_open_time?: string
+  schedule_close_time?: string
+  schedule_second_shift_enabled?: boolean
+  schedule_open_time_2?: string
+  schedule_close_time_2?: string
+  schedule_days?: string
+
+  // Control global de etiquetas de productos
+  show_product_badges?: boolean
+}
+
+export interface StoreOpenStatus {
+  isOpen: boolean
+  reason: 'open' | 'manual_closed' | 'outside_hours' | 'closed_day'
+  message: string
+  scheduleSummary?: string
+}
+
+function parseTimeToMinutes(timeStr?: string, defaultMins = 0): number {
+  if (!timeStr || !timeStr.includes(':')) return defaultMins
+  const [hStr, mStr] = timeStr.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  if (isNaN(h) || isNaN(m)) return defaultMins
+  return h * 60 + m
+}
+
+function isWithinShiftMinutes(nowMins: number, openMins: number, closeMins: number): boolean {
+  if (openMins === closeMins) return true
+  if (closeMins > openMins) {
+    return nowMins >= openMins && nowMins < closeMins
+  }
+  // Cruza la medianoche (ej: 19:30 a 01:00)
+  return nowMins >= openMins || nowMins < closeMins
+}
+
+/**
+ * Evalúa si el restaurante se encuentra abierto en este instante,
+ * combinando el interruptor manual y el horario automático propio de ese local.
+ */
+export function getStoreOpenStatus(restaurant?: RestaurantInfo | null): StoreOpenStatus {
+  if (!restaurant) {
+    return { isOpen: true, reason: 'open', message: '' }
+  }
+
+  const baseClosedMsg =
+    restaurant.closed_message || 'El local se encuentra cerrado en este momento. ¡Volvemos pronto!'
+
+  if (restaurant.is_store_open === false) {
+    return {
+      isOpen: false,
+      reason: 'manual_closed',
+      message: baseClosedMsg
+    }
+  }
+
+  if (!restaurant.auto_schedule_enabled) {
+    return { isOpen: true, reason: 'open', message: '' }
+  }
+
+  const now = new Date()
+  const currentDay = now.getDay() // 0 = Domingo ... 6 = Sábado
+  const prevDay = (currentDay + 6) % 7
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+
+  const rawDays = (restaurant.schedule_days ?? '0,1,2,3,4,5,6').toString()
+  const allowedDays = new Set(
+    rawDays
+      .split(',')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n))
+  )
+
+  const open1Str = restaurant.schedule_open_time || '19:30'
+  const close1Str = restaurant.schedule_close_time || '23:45'
+  const open1Mins = parseTimeToMinutes(open1Str, 19 * 60 + 30)
+  const close1Mins = parseTimeToMinutes(close1Str, 23 * 60 + 45)
+
+  const hasSecondShift = Boolean(restaurant.schedule_second_shift_enabled)
+  const open2Str = restaurant.schedule_open_time_2 || '11:30'
+  const close2Str = restaurant.schedule_close_time_2 || '14:30'
+  const open2Mins = parseTimeToMinutes(open2Str, 11 * 60 + 30)
+  const close2Mins = parseTimeToMinutes(close2Str, 14 * 60 + 30)
+
+  const scheduleSummary = hasSecondShift
+    ? `${open2Str} a ${close2Str} y ${open1Str} a ${close1Str} hs`
+    : `${open1Str} a ${close1Str} hs`
+
+  // Verificar si estamos en la madrugada de un turno nocturno iniciado el día anterior
+  const inOvernightFromYesterday1 =
+    close1Mins < open1Mins && nowMins < close1Mins && allowedDays.has(prevDay)
+  const inOvernightFromYesterday2 =
+    hasSecondShift && close2Mins < open2Mins && nowMins < close2Mins && allowedDays.has(prevDay)
+
+  if (inOvernightFromYesterday1 || inOvernightFromYesterday2) {
+    return { isOpen: true, reason: 'open', message: '', scheduleSummary }
+  }
+
+  if (!allowedDays.has(currentDay)) {
+    return {
+      isOpen: false,
+      reason: 'closed_day',
+      message: `${baseClosedMsg} (Hoy cerrado • Horario habitual: ${scheduleSummary})`,
+      scheduleSummary
+    }
+  }
+
+  const inShift1 =
+    close1Mins < open1Mins
+      ? nowMins >= open1Mins
+      : isWithinShiftMinutes(nowMins, open1Mins, close1Mins)
+  const inShift2 =
+    hasSecondShift &&
+    (close2Mins < open2Mins
+      ? nowMins >= open2Mins
+      : isWithinShiftMinutes(nowMins, open2Mins, close2Mins))
+
+  if (inShift1 || inShift2) {
+    return { isOpen: true, reason: 'open', message: '', scheduleSummary }
+  }
+
+  return {
+    isOpen: false,
+    reason: 'outside_hours',
+    message: `${baseClosedMsg} (Horario de pedidos: ${scheduleSummary})`,
+    scheduleSummary
+  }
 }
 
 // In-memory fallback for restaurant custom branding if Supabase table columns are pending migration
@@ -248,7 +378,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 12500,
     category: '🔥 Del Horno & Spiedo',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: '🔥 Más pedido'
   },
   {
     id: 'prod-emp-01',
@@ -258,7 +389,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 1600,
     category: '🥟 Empanadas Caseras',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '🔥 Más pedido'
   },
   {
     id: 'prod-emp-02',
@@ -268,7 +400,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 1500,
     category: '🥟 Empanadas Caseras',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: ''
   },
   {
     id: 'prod-emp-03',
@@ -278,7 +411,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 1600,
     category: '🥟 Empanadas Caseras',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '✨ ¡Nuevo!'
   },
   {
     id: 'prod-mila-01',
@@ -288,7 +422,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 14500,
     category: '🥩 Minutas & Platos Fuertes',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '⭐ Recomendado'
   },
   {
     id: 'prod-matambre-01',
@@ -298,7 +433,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 15800,
     category: '🥩 Minutas & Platos Fuertes',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: '👑 Especialidad'
   },
   {
     id: 'prod-pasta-01',
@@ -308,7 +444,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 11800,
     category: '🍝 Pastas Artesanales',
     is_available: true,
-    image_url: '/artisanal_dishes.jpg'
+    image_url: '/artisanal_dishes.jpg',
+    badge: '🏷️ Oferta'
   },
   {
     id: 'prod-tarta-01',
@@ -318,7 +455,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 7200,
     category: '🥗 Tartas & Guarniciones',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: ''
   },
   {
     id: 'prod-papas-01',
@@ -328,7 +466,8 @@ export const ARTISANAL_FALLBACK_PRODUCTS = [
     price: 4900,
     category: '🥗 Tartas & Guarniciones',
     is_available: true,
-    image_url: '/hero_rotiseria.jpg'
+    image_url: '/hero_rotiseria.jpg',
+    badge: ''
   }
 ]
 
@@ -612,11 +751,51 @@ export async function getAllRestaurants(): Promise<RestaurantInfo[]> {
   return result
 }
 
+const inMemoryProductBadges = new Map<string, string>()
+
+function getStoredProductBadge(productId: string): string | undefined {
+  if (inMemoryProductBadges.has(productId)) {
+    return inMemoryProductBadges.get(productId)
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('comandapp_product_badges')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && productId in parsed) {
+          return parsed[productId]
+        }
+      }
+    } catch {}
+  }
+  return undefined
+}
+
+function setStoredProductBadge(productId: string, badge: string) {
+  inMemoryProductBadges.set(productId, badge)
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem('comandapp_product_badges')
+      const parsed = raw ? JSON.parse(raw) : {}
+      parsed[productId] = badge
+      window.localStorage.setItem('comandapp_product_badges', JSON.stringify(parsed))
+    } catch {}
+  }
+}
+
+function enrichProductWithBadge<T extends { id: string; badge?: string }>(p: T): T {
+  const localBadge = getStoredProductBadge(p.id)
+  if (localBadge !== undefined) {
+    return { ...p, badge: localBadge }
+  }
+  return p
+}
+
 // --- Products (Public) ---
 export async function getProducts(restaurantIdOrSubdomain?: string) {
   const cacheKey = `products:${restaurantIdOrSubdomain || 'default'}`
   const cached = getCached<any[]>(cacheKey)
-  if (cached) return cached
+  if (cached) return cached.map(enrichProductWithBadge)
 
   const query = (async () => {
     let id = restaurantIdOrSubdomain
@@ -634,12 +813,12 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
 
     const isSample = SAMPLE_RESTAURANTS.some(r => r.id === id) || id === FALLBACK_RESTAURANT.id
     if (!error && data && (data.length > 0 || !isSample)) {
-      return data
+      return data.map(enrichProductWithBadge)
     }
-    return ARTISANAL_FALLBACK_PRODUCTS
+    return ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge)
   })()
 
-  const result = await withTimeout(query, 1200, ARTISANAL_FALLBACK_PRODUCTS)
+  const result = await withTimeout(query, 1200, ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge))
   setCached(cacheKey, result, 60)
   return result
 }
@@ -667,6 +846,7 @@ export interface ProductItem {
   category: string
   is_available: boolean
   image_url?: string
+  badge?: string
   ingredients?: string[]
   product_ingredients?: ProductIngredientItem[]
 }
@@ -678,7 +858,7 @@ const inMemoryRecipes = new Map<string, { inventory_item_id: string; quantity: n
 export async function getAdminProducts(restaurantId?: string): Promise<ProductItem[]> {
   const cacheKey = `admin_products:${restaurantId || 'all'}`
   const cached = getCached<ProductItem[]>(cacheKey)
-  if (cached) return cached
+  if (cached) return cached.map(enrichProductWithBadge)
 
   let builder = supabase.from('products').select(`
     *,
@@ -707,7 +887,7 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
       const { data: plainData } = await plainBuilder.order('name', { ascending: true })
 
       const list = plainData || (restaurantId ? [] : ARTISANAL_FALLBACK_PRODUCTS)
-      return list.map((p: any) => ({
+      return list.map((p: any) => enrichProductWithBadge({
         ...p,
         product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
           ...r,
@@ -721,18 +901,18 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
         // Enlazar también si había en memoria
         const mem = inMemoryRecipes.get(p.id)
         if ((!p.product_ingredients || p.product_ingredients.length === 0) && mem) {
-          return {
+          return enrichProductWithBadge({
             ...p,
             product_ingredients: mem.map(r => ({ ...r, product_id: p.id }))
-          }
+          })
         }
-        return p
+        return enrichProductWithBadge(p)
       })
     }
-    return restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS as any[])
+    return restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
   })
 
-  const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS as any[])
+  const fallback = restaurantId ? [] : (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[])
   const result = await withTimeout(query, 1500, fallback)
   setCached(cacheKey, result, 30)
   return result
@@ -748,6 +928,7 @@ export async function saveProduct(
     category: string
     is_available?: boolean
     image_url?: string
+    badge?: string
   },
   recipe: { inventory_item_id: string; quantity: number }[],
   restaurantId: string
@@ -756,47 +937,65 @@ export async function saveProduct(
     productData.name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 10) + '-' + Math.floor(Math.random() * 900 + 100)
 
   let productId = productData.id
+  const badgeVal = productData.badge !== undefined ? productData.badge.trim() : ''
+
+  const basePayload: Record<string, any> = {
+    name: productData.name,
+    code,
+    description: productData.description || '',
+    price: Number(productData.price),
+    category: productData.category,
+    is_available: productData.is_available ?? true,
+    image_url: productData.image_url || '',
+    badge: badgeVal
+  }
 
   if (productId) {
-    // Actualizar producto existente
-    const { error } = await supabase
+    // Actualizar producto existente (con fallback si la columna badge aún no se migró en DB)
+    let { error } = await supabase
       .from('products')
-      .update({
-        name: productData.name,
-        code,
-        description: productData.description || '',
-        price: Number(productData.price),
-        category: productData.category,
-        is_available: productData.is_available ?? true,
-        image_url: productData.image_url || ''
-      })
+      .update(basePayload)
       .eq('id', productId)
       .eq('restaurant_id', restaurantId)
+
+    if (error && /badge/i.test(error.message || '')) {
+      const { badge: _omit, ...withoutBadge } = basePayload
+      const retry = await supabase
+        .from('products')
+        .update(withoutBadge)
+        .eq('id', productId)
+        .eq('restaurant_id', restaurantId)
+      error = retry.error
+    }
 
     if (error) throw error
   } else {
     // Crear nuevo producto
-    const { data: newProd, error } = await supabase
+    const insertPayload: Record<string, any> = { ...basePayload, restaurant_id: restaurantId }
+    let { data: newProd, error } = await supabase
       .from('products')
-      .insert({
-        restaurant_id: restaurantId,
-        name: productData.name,
-        code,
-        description: productData.description || '',
-        price: Number(productData.price),
-        category: productData.category,
-        is_available: productData.is_available ?? true,
-        image_url: productData.image_url || ''
-      })
+      .insert(insertPayload)
       .select()
       .single()
+
+    if (error && /badge/i.test(error.message || '')) {
+      const { badge: _omit, ...withoutBadge } = insertPayload
+      const retry = await supabase
+        .from('products')
+        .insert(withoutBadge)
+        .select()
+        .single()
+      newProd = retry.data
+      error = retry.error
+    }
 
     if (error) throw error
     productId = newProd.id
   }
 
-  // Guardar receta en memoria de respaldo
+  // Guardar etiqueta y receta en respaldo local/memoria
   if (productId) {
+    setStoredProductBadge(productId, badgeVal)
     inMemoryRecipes.set(productId, recipe)
   }
 

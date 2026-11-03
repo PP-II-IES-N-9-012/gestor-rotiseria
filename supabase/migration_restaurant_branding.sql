@@ -1,9 +1,9 @@
 -- =================================================================================
--- MIGRACIÓN COMPLETA: Personalización Profunda de Tienda (Branding, Colores, Logos, Banners, Temas y Redes)
+-- MIGRACIÓN COMPLETA: Personalización Profunda de Tienda (Branding, Horarios Automáticos y Etiquetas)
 -- Ejecutar en Supabase -> SQL Editor -> New Query -> Run
 -- =================================================================================
 
--- 1. Agregar todas las columnas de personalización estética y de información
+-- 1. Agregar todas las columnas de personalización estética, horarios automáticos y configuración
 ALTER TABLE public.restaurants 
 ADD COLUMN IF NOT EXISTS description TEXT,
 ADD COLUMN IF NOT EXISTS address TEXT,
@@ -37,7 +37,19 @@ ADD COLUMN IF NOT EXISTS accepts_card BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS cash_discount_percentage NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS hero_cta_text TEXT DEFAULT 'Pedir al plato',
 ADD COLUMN IF NOT EXISTS hero_overlay_opacity TEXT DEFAULT 'dark',
-ADD COLUMN IF NOT EXISTS footer_custom_text TEXT DEFAULT 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.';
+ADD COLUMN IF NOT EXISTS footer_custom_text TEXT DEFAULT 'Cocina tradicional, recetas familiares y entrega directa sin intermediarios.',
+ADD COLUMN IF NOT EXISTS auto_schedule_enabled BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS schedule_open_time TEXT DEFAULT '19:30',
+ADD COLUMN IF NOT EXISTS schedule_close_time TEXT DEFAULT '23:45',
+ADD COLUMN IF NOT EXISTS schedule_second_shift_enabled BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS schedule_open_time_2 TEXT DEFAULT '11:30',
+ADD COLUMN IF NOT EXISTS schedule_close_time_2 TEXT DEFAULT '15:00',
+ADD COLUMN IF NOT EXISTS schedule_days TEXT DEFAULT '0,2,3,4,5,6',
+ADD COLUMN IF NOT EXISTS show_product_badges BOOLEAN DEFAULT true;
+
+-- 1b. Agregar columna de etiqueta promocional a los productos ("🔥 Más pedido", "✨ ¡Nuevo!", "🏷️ Oferta", o vacío para ocultar)
+ALTER TABLE public.products
+ADD COLUMN IF NOT EXISTS badge TEXT DEFAULT '';
 
 -- 2. Asegurar que las políticas RLS permitan actualizar estas columnas por parte del administrador
 DROP POLICY IF EXISTS "Users can update their own restaurant" ON public.restaurants;

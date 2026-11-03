@@ -14,6 +14,8 @@ interface ProductCatalogProps {
   cashDiscountPercentage?: number
   deliveryTime?: string
   ctaText?: string
+  showProductBadges?: boolean
+  isStoreOpen?: boolean
 }
 
 export default function ProductCatalog({
@@ -23,7 +25,9 @@ export default function ProductCatalog({
   secondaryColor = '#d34e2c',
   cashDiscountPercentage = 0,
   deliveryTime = '35-45 min',
-  ctaText = 'Pedir al plato'
+  ctaText = 'Pedir al plato',
+  showProductBadges = true,
+  isStoreOpen = true
 }: ProductCatalogProps) {
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -141,17 +145,19 @@ export default function ProductCatalog({
                     <span className="text-lg font-rustic">{Number(product.price).toLocaleString('es-AR')}</span>
                   </div>
 
-                  {/* Artisanal Badge */}
-                  <div 
-                    className="absolute bottom-3 left-3 backdrop-blur-sm px-2.5 py-1 rounded-lg border text-[11px] font-medium z-10"
-                    style={{
-                      backgroundColor: 'var(--store-badge-bg, rgba(30,23,19,0.85))',
-                      borderColor: `${primaryColor}35`,
-                      color: primaryColor
-                    }}
-                  >
-                    Receta Casera
-                  </div>
+                  {/* Custom Product Badge (Nuevo, Oferta, Más pedido, etc.) */}
+                  {showProductBadges && product.badge && product.badge.trim() !== '' && (
+                    <div 
+                      className="absolute bottom-3 left-3 backdrop-blur-md px-2.5 py-1 rounded-lg border text-[11px] font-bold z-10 shadow-lg"
+                      style={{
+                        backgroundColor: 'var(--store-badge-bg, rgba(20, 15, 12, 0.92))',
+                        borderColor: `${primaryColor}55`,
+                        color: primaryColor
+                      }}
+                    >
+                      {product.badge}
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
@@ -177,6 +183,7 @@ export default function ProductCatalog({
                     <AddToCartButton 
                       product={{ id: product.id, name: product.name, price: Number(product.price) }} 
                       ctaText={ctaText}
+                      disabled={!isStoreOpen}
                     />
                   </div>
                 </div>
@@ -197,6 +204,8 @@ export default function ProductCatalog({
         secondaryColor={secondaryColor}
         cashDiscountPercentage={cashDiscountPercentage}
         deliveryTime={deliveryTime}
+        showProductBadges={showProductBadges}
+        isStoreOpen={isStoreOpen}
       />
     </>
   )

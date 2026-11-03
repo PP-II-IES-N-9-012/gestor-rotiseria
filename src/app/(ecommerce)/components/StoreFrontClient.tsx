@@ -14,6 +14,7 @@ import {
   getProducts, 
   mergeBranding, 
   invalidateCache,
+  getStoreOpenStatus,
   type RestaurantInfo, 
   type ProductItem 
 } from '@/lib/api'
@@ -31,6 +32,12 @@ export default function StoreFrontClient({
 }: StoreFrontClientProps) {
   const [restaurant, setRestaurant] = useState<RestaurantInfo>(initialRestaurant)
   const [products, setProducts] = useState<ProductItem[]>(initialProducts)
+  const [, setClockTick] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => setClockTick(t => t + 1), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -80,16 +87,18 @@ export default function StoreFrontClient({
   const tag2 = restaurant.highlight_tag_2 || '100% Casero'
   const tag3 = restaurant.highlight_tag_3 || 'Atención Directa'
   const ctaText = restaurant.hero_cta_text || 'Pedir al plato'
+  const storeStatus = getStoreOpenStatus(restaurant)
+  const showProductBadges = restaurant.show_product_badges !== false
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       
-      {/* Store Closed Notice */}
-      {restaurant.is_store_open === false && (
+      {/* Store Closed / Outside Hours Notice */}
+      {!storeStatus.isOpen && (
         <div className="bg-rose-950/90 border border-rose-500/50 p-4 rounded-2xl text-center text-rose-200 text-sm flex items-center justify-center gap-2 shadow-xl animate-in fade-in">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
           <span>
-            <strong>Local Cerrado Temporalmente:</strong> {restaurant.closed_message || 'El horno está apagado por ahora. ¡Vuelve pronto!'}
+            <strong>Local Cerrado:</strong> {storeStatus.message}
           </span>
         </div>
       )}
@@ -243,6 +252,8 @@ export default function StoreFrontClient({
         cashDiscountPercentage={restaurant.cash_discount_percentage}
         deliveryTime={deliveryTime}
         ctaText={ctaText}
+        showProductBadges={showProductBadges}
+        isStoreOpen={storeStatus.isOpen}
       />
     </div>
   )
