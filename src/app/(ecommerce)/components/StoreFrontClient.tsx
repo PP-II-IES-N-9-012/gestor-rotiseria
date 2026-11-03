@@ -15,10 +15,12 @@ import {
   mergeBranding, 
   invalidateCache,
   getStoreOpenStatus,
+  isSampleRestaurantId,
   type RestaurantInfo, 
   type ProductItem 
 } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { useCartStore } from '@/store/useCartStore'
 
 interface StoreFrontClientProps {
   initialRestaurant: RestaurantInfo
@@ -34,6 +36,7 @@ export default function StoreFrontClient({
   const [restaurant, setRestaurant] = useState<RestaurantInfo>(initialRestaurant)
   const [products, setProducts] = useState<ProductItem[]>(initialProducts)
   const [, setClockTick] = useState(0)
+  const ensureTenant = useCartStore(state => state.ensureTenant)
 
   useEffect(() => {
     const timer = setInterval(() => setClockTick(t => t + 1), 30000)
@@ -43,54 +46,59 @@ export default function StoreFrontClient({
   useEffect(() => {
     let cancelled = false
 
-    // Aplicar inmediatamente cualquier personalización local guardada tras hidratar
-    setRestaurant(prev => mergeBranding(prev))
+    // Aislar carrito por tienda y sincronizar inmediatamente el comercio inicial
+    ensureTenant(initialRestaurant.id)
+    setRestaurant(mergeBranding(initialRestaurant))
+    setProducts(initialProducts)
 
-    const syncLatest = async () => {
+    const syncLatest = async (forceProducts = false) => {
       const freshRest = await getRestaurant(initialRestaurant.subdomain || initialRestaurant.id)
       if (cancelled) return
       setRestaurant(mergeBranding(freshRest))
 
       const freshProds = await getProducts(freshRest.id)
       if (cancelled) return
-      if (freshProds && freshProds.length > 0) {
+      if (freshProds && (forceProducts || freshProds.length > 0 || initialProducts.length === 0)) {
         setProducts(freshProds)
       }
     }
 
-    syncLatest()
+    syncLatest(false)
 
     const handleUpdate = () => {
       invalidateCache('restaurant')
       invalidateCache('restaurant_strict')
       invalidateCache('products')
-      syncLatest()
+      syncLatest(true)
     }
 
     window.addEventListener('comandapp-branding-updated', handleUpdate)
     window.addEventListener('storage', handleUpdate)
 
-    const channel = supabase
-      .channel(`storefront-sync-${initialRestaurant.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'restaurants' },
-        () => handleUpdate()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        () => handleUpdate()
-      )
-      .subscribe()
+    const isDemo = isSampleRestaurantId(initialRestaurant.id)
+    const channel = !isDemo
+      ? supabase
+          .channel(`storefront-sync-${initialRestaurant.id}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'restaurants', filter: `id=eq.${initialRestaurant.id}` },
+            () => handleUpdate()
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'products', filter: `restaurant_id=eq.${initialRestaurant.id}` },
+            () => handleUpdate()
+          )
+          .subscribe()
+      : null
 
     return () => {
       cancelled = true
       window.removeEventListener('comandapp-branding-updated', handleUpdate)
       window.removeEventListener('storage', handleUpdate)
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
-  }, [initialRestaurant])
+  }, [initialRestaurant, initialProducts, ensureTenant])
 
   const categories = Array.from(new Set(products.map(p => p.category)))
 

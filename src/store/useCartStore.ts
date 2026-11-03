@@ -9,7 +9,9 @@ export interface CartItem {
 }
 
 interface CartStore {
+  tenantId: string | null
   items: CartItem[]
+  ensureTenant: (tenantId: string) => void
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
@@ -20,7 +22,18 @@ interface CartStore {
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
+      tenantId: null,
       items: [],
+      ensureTenant: (nextTenantId) => set((state) => {
+        if (!nextTenantId) return state
+        if (state.tenantId && state.tenantId !== nextTenantId) {
+          return { tenantId: nextTenantId, items: [] }
+        }
+        if (!state.tenantId) {
+          return { tenantId: nextTenantId }
+        }
+        return state
+      }),
       addItem: (item) => set((state) => {
         const existing = state.items.find(i => i.id === item.id)
         if (existing) {
@@ -40,4 +53,3 @@ export const useCartStore = create<CartStore>()(
     }
   )
 )
-

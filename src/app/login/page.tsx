@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Flame, Loader2, Lock, Mail, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
-import { buildTenantUrl, getClientTenant, matchRootDomain } from '@/lib/tenant'
+import { buildTenantUrl, getClientTenant, isOnTenantHost, matchRootDomain } from '@/lib/tenant'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -51,6 +51,13 @@ export default function LoginPage() {
     setError('')
 
     try {
+      // Limpiar cualquier rastro previo de Modo Demostración antes de iniciar sesión real
+      try {
+        localStorage.removeItem('demo_auth')
+        window.sessionStorage.removeItem('comandapp_demo_mode')
+        window.sessionStorage.removeItem('comandapp_active_tenant')
+      } catch {}
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -61,7 +68,7 @@ export default function LoginPage() {
       // Fetch profile to ensure they have a restaurant assigned
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('restaurant_id')
+        .select('restaurant_id, role')
         .eq('id', data.user.id)
         .single()
 
@@ -73,17 +80,23 @@ export default function LoginPage() {
       const own = await getRestaurant(profile.restaurant_id)
       const hostTenant = getClientTenant()
       const targetSubdomain = own.subdomain.toLowerCase()
+      const defaultTarget =
+        profile.role === 'cook' ? '/admin/cocina' : profile.role === 'seller' ? '/admin/pos' : '/admin'
 
-      // Si ya está en el subdominio correcto de su restaurante
+      try {
+        window.sessionStorage.setItem('comandapp_active_tenant', targetSubdomain)
+      } catch {}
+
+      // Si ya está en el subdominio o parámetro correcto de su restaurante
       if (hostTenant && hostTenant === targetSubdomain) {
-        router.push('/admin')
+        router.push(defaultTarget)
         return
       }
 
-      // Si se loguea desde el dominio general o desde otro subdominio,
+      // Si se loguea desde el dominio general o desde otro subdominio propio,
       // lo enviamos DIRECTAMENTE a /admin de su restaurante transfiriendo los tokens
       if (matchRootDomain(window.location.host) && data.session) {
-        const target = buildTenantUrl(targetSubdomain, '/admin')
+        const target = buildTenantUrl(targetSubdomain, defaultTarget)
         const hash = new URLSearchParams({
           sat: data.session.access_token,
           srt: data.session.refresh_token
@@ -92,7 +105,8 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/admin')
+      // En hosts compartidos (ej: vercel.app), conservar el ?negocio=<subdominio> propio
+      router.push(buildTenantUrl(targetSubdomain, defaultTarget))
       
     } catch (err: any) {
       console.error(err)
@@ -193,11 +207,16 @@ export default function LoginPage() {
                 try {
                   await supabase.auth.signOut()
                 } catch {}
-                localStorage.setItem('demo_auth', 'true')
                 try {
+                  localStorage.removeItem('demo_auth')
+                  window.sessionStorage.setItem('comandapp_demo_mode', 'true')
                   window.sessionStorage.setItem('comandapp_active_tenant', 'don-carlos')
                 } catch {}
-                router.push('/admin?demo=true')
+                if (isOnTenantHost()) {
+                  window.location.href = buildTenantUrl('don-carlos', '/admin?demo=true')
+                } else {
+                  router.push('/admin?demo=true')
+                }
               }}
               className="w-full bg-[#2a1d15] hover:bg-[#38261b] text-[#e59324] border border-[#e59324]/30 py-2.5 text-xs font-semibold rounded-xl flex justify-center items-center gap-1.5 transition-all"
             >

@@ -310,51 +310,27 @@ export async function uploadRestaurantMedia(
   return dataUrl
 }
 
+const SAMPLE_DEMO_KEYS = new Set([
+  FALLBACK_RESTAURANT.id.toLowerCase(),
+  '11111111-2222-3333-4444-555555555555',
+  '22222222-3333-4444-5555-666666666666',
+  'demo',
+  'don-carlos',
+  'la-nonna',
+  'default'
+])
+
 export function isSampleRestaurantId(id?: string): boolean {
   if (!id) return true
   const clean = id.trim().toLowerCase()
-  if (clean === FALLBACK_RESTAURANT.id.toLowerCase() || clean === 'demo' || clean === 'don-carlos' || clean === 'default') return true
-  return SAMPLE_RESTAURANTS.some(r => r.id.toLowerCase() === clean || r.subdomain.toLowerCase() === clean)
+  if (SAMPLE_DEMO_KEYS.has(clean)) return true
+  if (clean.startsWith('preview-')) return true
+  return false
 }
 
 export const SAMPLE_RESTAURANTS: RestaurantInfo[] = [
   {
-    id: 'b326adf8-3a44-4736-bf3e-06e1e6bba946',
-    name: 'Rotisería Castelli',
-    subdomain: 'roti-castelli',
-    address: 'Castelli 890, Centro',
-    phone: '+54 9 11 4321-7788',
-    description: 'Pollos al spiedo dorados y empanadas tradicionales.',
-    whatsapp_number: '+54 9 11 4321-7788',
-    instagram_handle: '@roticastelli',
-    opening_hours: 'Lunes a Sábado: 11:30 a 14:30 y 19:30 a 23:30',
-    logo_url: '',
-    banner_url: '/hero_rotiseria.jpg',
-    primary_color: '#e59324',
-    secondary_color: '#d34e2c',
-    estimated_delivery_time: '30-40 min',
-    highlight_tag_1: 'Pollo al Spiedo',
-    highlight_tag_2: 'Empanadas al Horno',
-    highlight_tag_3: 'Envíos Rápidos'
-  },
-  {
-    id: '11111111-2222-3333-4444-555555555555',
-    name: 'Rotisería Don Carlos',
-    subdomain: 'don-carlos',
-    address: 'Av. San Martín 1420',
-    phone: '+54 9 11 4455-8899',
-    description: 'Comida casera al horno de barro y minutas al instante.',
-    whatsapp_number: '+54 9 11 4455-8899',
-    instagram_handle: '@doncarlos_ok',
-    opening_hours: 'Martes a Domingo: 19:30 a 23:45',
-    logo_url: '',
-    banner_url: '/hero_rotiseria.jpg',
-    primary_color: '#e59324',
-    secondary_color: '#d34e2c',
-    estimated_delivery_time: '35-45 min',
-    highlight_tag_1: 'Horno a Leña & Fuego',
-    highlight_tag_2: '100% Casero',
-    highlight_tag_3: 'Atención Directa'
+    ...FALLBACK_RESTAURANT
   },
   {
     id: '22222222-3333-4444-5555-666666666666',
@@ -583,10 +559,11 @@ export function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
       // Ignore localStorage parse errors
     }
   }
+  const isDemoRest = isSampleRestaurantId(rest.id) || isSampleRestaurantId(rest.subdomain)
   const custom = inMemoryRestaurantBranding.get(rest.id) || (rest.subdomain ? inMemoryRestaurantBranding.get(rest.subdomain.toLowerCase()) : undefined)
   if (custom) {
     for (const [k, v] of Object.entries(custom)) {
-      if (merged[k] === undefined) {
+      if (isDemoRest || merged[k] === undefined) {
         merged[k] = v
       }
     }
@@ -596,52 +573,70 @@ export function mergeBranding(rest: RestaurantInfo): RestaurantInfo {
 
 // Obtener restaurante por subdominio o ID
 export async function getRestaurant(idOrSubdomain?: string): Promise<RestaurantInfo> {
-  const cacheKey = `restaurant:${idOrSubdomain || 'default'}`
+  const raw = idOrSubdomain?.trim()
+  const clean = raw?.toLowerCase()
+  const cacheKey = `restaurant:${clean || 'default'}`
   const cached = getCached<RestaurantInfo>(cacheKey)
   if (cached) return mergeBranding(cached)
 
-  // Quick match in sample restaurants
-  const sampleMatch = SAMPLE_RESTAURANTS.find(
-    r => (idOrSubdomain && r.subdomain.toLowerCase() === idOrSubdomain.toLowerCase()) || r.id === idOrSubdomain
-  )
-
-  if (!idOrSubdomain || idOrSubdomain === 'demo' || idOrSubdomain === 'default' || idOrSubdomain.toLowerCase() === 'don-carlos') {
+  if (!raw || !clean || clean === 'demo' || clean === 'default' || clean === 'don-carlos' || clean === FALLBACK_RESTAURANT.id.toLowerCase()) {
     const merged = mergeBranding(FALLBACK_RESTAURANT)
     setCached(cacheKey, merged, 30)
     return merged
   }
 
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrSubdomain)
+  if (clean.startsWith('preview-')) {
+    const sub = clean.replace(/^preview-/, '') || 'tunegocio'
+    const preview = mergeBranding({
+      ...FALLBACK_RESTAURANT,
+      id: `preview-${sub}`,
+      name: `Rotisería ${sub.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+      subdomain: sub
+    })
+    setCached(cacheKey, preview, 30)
+    return preview
+  }
+
+  // Quick match in sample restaurants
+  const sampleMatch = SAMPLE_RESTAURANTS.find(
+    r => r.subdomain.toLowerCase() === clean || r.id.toLowerCase() === clean
+  )
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)
+
+  // Si es un UUID de demostración conocido, devolver directo sin tocar Supabase
+  if (isUuid && isSampleRestaurantId(raw)) {
+    const merged = mergeBranding(sampleMatch || FALLBACK_RESTAURANT)
+    setCached(cacheKey, merged, 30)
+    return merged
+  }
+
+  const previewFallback: RestaurantInfo = sampleMatch || {
+    ...FALLBACK_RESTAURANT,
+    id: isUuid ? raw : `preview-${clean}`,
+    name: `Rotisería ${raw.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+    subdomain: clean
+  }
 
   const query = (async () => {
     if (isUuid) {
-      const { data } = await supabase.from('restaurants').select('*').eq('id', idOrSubdomain).maybeSingle()
+      const { data } = await supabase.from('restaurants').select('*').eq('id', raw).maybeSingle()
+      if (data) return mergeBranding(data)
+    } else {
+      const { data } = await supabase
+        .from('restaurants')
+        .select('*')
+        .ilike('subdomain', clean)
+        .maybeSingle()
+
       if (data) return mergeBranding(data)
     }
 
-    const { data } = await supabase
-      .from('restaurants')
-      .select('*')
-      .ilike('subdomain', idOrSubdomain)
-      .maybeSingle()
-
-    if (data) return mergeBranding(data)
     if (sampleMatch) return mergeBranding(sampleMatch)
-
-    return mergeBranding({
-      ...FALLBACK_RESTAURANT,
-      name: `Rotisería ${idOrSubdomain.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
-      subdomain: idOrSubdomain
-    })
+    return mergeBranding(previewFallback)
   })()
 
-  const fallback = sampleMatch || {
-    ...FALLBACK_RESTAURANT,
-    name: `Rotisería ${idOrSubdomain.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
-    subdomain: idOrSubdomain
-  }
-
-  const result = await withTimeout(query, 4000, fallback)
+  const result = await withTimeout(query, 8000, previewFallback)
   const merged = mergeBranding(result)
   setCached(cacheKey, merged, 15)
   return merged
@@ -680,6 +675,18 @@ export async function updateRestaurantBranding(
   const payload: Record<string, any> = { ...data }
   delete payload.id
   delete payload.subdomain // Subdominio es de solo lectura tras creación
+
+  if (isSampleRestaurantId(restaurantId)) {
+    const prev = inMemoryRestaurantBranding.get(restaurantId) || {}
+    inMemoryRestaurantBranding.set(restaurantId, { ...prev, ...payload })
+    invalidateCache('restaurant')
+    invalidateCache('restaurant_strict')
+    invalidateCache('all_restaurants')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('comandapp-branding-updated', { detail: { ...data, id: restaurantId } }))
+    }
+    return true
+  }
 
   const unmigratedFields: Record<string, any> = {}
 
@@ -829,29 +836,38 @@ export async function getProducts(restaurantIdOrSubdomain?: string) {
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached.map(enrichProductWithBadge)
 
-  const query = (async () => {
-    let id = restaurantIdOrSubdomain
-    const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
-    if (!isUuid) {
-      const rest = await getRestaurant(restaurantIdOrSubdomain)
-      id = rest.id
-    }
+  let id = restaurantIdOrSubdomain?.trim()
+  const isUuid = !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  if (!isUuid && !isSampleRestaurantId(id)) {
+    const rest = await getRestaurant(id)
+    id = rest.id
+  }
 
+  // Si es tienda demo o vista previa de subdominio, devolver directamente catálogo artesanal de ejemplo
+  if (isSampleRestaurantId(id)) {
+    const demoProds = ARTISANAL_FALLBACK_PRODUCTS.filter(p => p.is_available !== false).map(enrichProductWithBadge)
+    setCached(cacheKey, demoProds, 15)
+    return demoProds
+  }
+
+  // Comercio REAL en Supabase: consultar EXCLUSIVAMENTE sus propios productos (jamás mezclar con otro local ni con demo)
+  let succeeded = false
+  const query = (async () => {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('restaurant_id', id)
+      .eq('restaurant_id', id!)
       .eq('is_available', true)
 
-    const isSample = SAMPLE_RESTAURANTS.some(r => r.id === id) || id === FALLBACK_RESTAURANT.id
-    if (!error && data && (data.length > 0 || !isSample)) {
+    if (!error && data) {
+      succeeded = true
       return data.map(enrichProductWithBadge)
     }
-    return ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge)
+    return []
   })()
 
-  const result = await withTimeout(query, 4000, ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge))
-  setCached(cacheKey, result, 15)
+  const result = await withTimeout(query, 8000, [])
+  if (succeeded) setCached(cacheKey, result, 15)
   return result
 }
 
@@ -889,49 +905,69 @@ const inMemoryRecipes = new Map<string, { inventory_item_id: string; quantity: n
 // --- Admin Product CRUD ---
 export async function getAdminProducts(restaurantId?: string): Promise<ProductItem[]> {
   const isSample = isSampleRestaurantId(restaurantId)
-  const cacheKey = `admin_products:${restaurantId || 'all'}`
+  const cacheKey = `admin_products:${restaurantId || 'demo'}`
   const cached = getCached<ProductItem[]>(cacheKey)
   if (cached) return cached.map(enrichProductWithBadge)
 
-  let builder = supabase.from('products').select(`
-    *,
-    product_ingredients (
-      id,
-      product_id,
-      inventory_item_id,
-      quantity,
-      inventory_items:inventory_item_id (
-        id,
-        name,
-        unit,
-        quantity_available
-      )
-    )
-  `)
-
-  if (restaurantId && !isSample) builder = builder.eq('restaurant_id', restaurantId)
-
-  const query = builder.order('name', { ascending: true }).then(async ({ data, error }) => {
-    // Si la relación falla (por ejemplo tabla product_ingredients no existe aún en Supabase)
-    if (error) {
-      console.warn('Falling back to plain products query:', error.message)
-      let plainBuilder = supabase.from('products').select('*')
-      if (restaurantId) plainBuilder = plainBuilder.eq('restaurant_id', restaurantId)
-      const { data: plainData } = await plainBuilder.order('name', { ascending: true })
-
-      const list = plainData && plainData.length > 0 ? plainData : fallback
-      return list.map((p: any) => enrichProductWithBadge({
-        ...p,
-        product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
-          ...r,
-          product_id: p.id
-        }))
+  // Modo demostración: devolver exclusivamente el catálogo de ejemplo sin consultar productos de otros locales en Supabase
+  if (isSample || !restaurantId) {
+    const demoProds = ARTISANAL_FALLBACK_PRODUCTS.map((p: any) => enrichProductWithBadge({
+      ...p,
+      restaurant_id: restaurantId || FALLBACK_RESTAURANT.id,
+      product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
+        ...r,
+        product_id: p.id
       }))
-    }
+    })) as ProductItem[]
+    setCached(cacheKey, demoProds, 15)
+    return demoProds
+  }
 
-    if (data && (data.length > 0 || restaurantId)) {
-      return data.map((p: any) => {
-        // Enlazar también si había en memoria
+  // Comercio REAL: filtrar SIEMPRE por restaurant_id (jamás mezclar catálogos)
+  let succeeded = false
+  const query = supabase
+    .from('products')
+    .select(`
+      *,
+      product_ingredients (
+        id,
+        product_id,
+        inventory_item_id,
+        quantity,
+        inventory_items:inventory_item_id (
+          id,
+          name,
+          unit,
+          quantity_available
+        )
+      )
+    `)
+    .eq('restaurant_id', restaurantId)
+    .order('name', { ascending: true })
+    .then(async ({ data, error }) => {
+      if (error) {
+        console.warn('Falling back to plain products query:', error.message)
+        const { data: plainData, error: plainErr } = await supabase
+          .from('products')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+          .order('name', { ascending: true })
+
+        if (!plainErr && plainData) {
+          succeeded = true
+          return plainData.map((p: any) => enrichProductWithBadge({
+            ...p,
+            product_ingredients: (inMemoryRecipes.get(p.id) || []).map(r => ({
+              ...r,
+              product_id: p.id
+            }))
+          }))
+        }
+        return []
+      }
+
+      succeeded = true
+      return (data || []).map((p: any) => {
         const mem = inMemoryRecipes.get(p.id)
         if ((!p.product_ingredients || p.product_ingredients.length === 0) && mem) {
           return enrichProductWithBadge({
@@ -941,13 +977,10 @@ export async function getAdminProducts(restaurantId?: string): Promise<ProductIt
         }
         return enrichProductWithBadge(p)
       })
-    }
-    return fallback
-  })
+    })
 
-  const fallback = (isSample || !restaurantId) ? (ARTISANAL_FALLBACK_PRODUCTS.map(enrichProductWithBadge) as any[]) : []
-  const result = await withTimeout(query, 4000, fallback)
-  setCached(cacheKey, result, 15)
+  const result = await withTimeout(query, 8000, [])
+  if (succeeded) setCached(cacheKey, result, 15)
   return result
 }
 
@@ -982,6 +1015,25 @@ export async function saveProduct(
     is_available: productData.is_available ?? true,
     image_url: productData.image_url || '',
     badge: badgeVal
+  }
+
+  if (isSampleRestaurantId(restaurantId)) {
+    const targetId = productId || `prod-demo-${Date.now()}`
+    const existingIdx = ARTISANAL_FALLBACK_PRODUCTS.findIndex(p => p.id === targetId)
+    const demoItem: any = {
+      ...(existingIdx !== -1 ? ARTISANAL_FALLBACK_PRODUCTS[existingIdx] : {}),
+      id: targetId,
+      ...basePayload
+    }
+    if (existingIdx !== -1) {
+      ARTISANAL_FALLBACK_PRODUCTS[existingIdx] = demoItem
+    } else {
+      ARTISANAL_FALLBACK_PRODUCTS.push(demoItem)
+    }
+    inMemoryRecipes.set(targetId, recipe)
+    invalidateCache('products')
+    invalidateCache('admin_products')
+    return targetId
   }
 
   if (productId) {
@@ -1067,6 +1119,15 @@ export async function saveProduct(
 }
 
 export async function deleteProduct(productId: string, restaurantId?: string) {
+  if (isSampleRestaurantId(restaurantId)) {
+    const idx = ARTISANAL_FALLBACK_PRODUCTS.findIndex(p => p.id === productId)
+    if (idx !== -1) ARTISANAL_FALLBACK_PRODUCTS.splice(idx, 1)
+    inMemoryRecipes.delete(productId)
+    invalidateCache('products')
+    invalidateCache('admin_products')
+    return
+  }
+
   let builder = supabase.from('products').delete().eq('id', productId)
   if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
 
@@ -1079,6 +1140,14 @@ export async function deleteProduct(productId: string, restaurantId?: string) {
 }
 
 export async function toggleProductAvailability(productId: string, isAvailable: boolean) {
+  const demoProd = ARTISANAL_FALLBACK_PRODUCTS.find(p => p.id === productId)
+  if (demoProd) {
+    demoProd.is_available = isAvailable
+    invalidateCache('products')
+    invalidateCache('admin_products')
+    return
+  }
+
   const { error } = await supabase
     .from('products')
     .update({ is_available: isAvailable })
@@ -1306,7 +1375,7 @@ export async function createOrder(
   items: { product_id: string; quantity: number; unit_price: number; product_name?: string }[],
   restaurantId?: string
 ) {
-  const id = restaurantId || (await getPublicTenantId())
+  const id = restaurantId || FALLBACK_RESTAURANT.id
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
   const uuidItems = items.filter((item) => uuidRegex.test(item.product_id))
@@ -1335,7 +1404,9 @@ export async function createOrder(
     created_at: nowIso
   }
 
-  try {
+  if (isSampleRestaurantId(id)) {
+    isFallbackOnly = true
+  } else try {
     const { error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -1545,11 +1616,28 @@ export const SAMPLE_INVENTORY = [
 ]
 
 export async function getOrdersByStatus(statuses: string[], restaurantId?: string) {
-  const cacheKey = `orders:${restaurantId || 'all'}:${statuses.slice().sort().join(',')}`
+  const isSample = isSampleRestaurantId(restaurantId)
+  const cacheKey = `orders:${restaurantId || 'demo'}:${statuses.slice().sort().join(',')}`
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
-  let builder = supabase
+  const recentPool = getRecentLocalOrders()
+
+  if (isSample || !restaurantId) {
+    const demoLocal = recentPool.filter(
+      (o) => statuses.includes(o.status) && isSampleRestaurantId(o.restaurant_id)
+    )
+    const demoOrders = [...demoLocal, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
+    setCached(cacheKey, demoOrders, 5)
+    return demoOrders
+  }
+
+  const memMatches = recentPool.filter(
+    (o) => statuses.includes(o.status) && o.restaurant_id === restaurantId
+  )
+
+  let succeeded = false
+  const query = supabase
     .from('orders')
     .select(`
       *,
@@ -1562,30 +1650,21 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
       )
     `)
     .in('status', statuses)
-  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
-
-  const recentPool = getRecentLocalOrders()
-  const memMatches = recentPool.filter(
-    (o) => statuses.includes(o.status) && (!restaurantId || o.restaurant_id === restaurantId)
-  )
-
-  const query = builder
+    .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: true })
     .then(({ data, error }) => {
-      if (!error && data && (data.length > 0 || restaurantId)) {
+      if (!error && data) {
+        succeeded = true
         const enriched = data.map((dbOrder: any) => enrichOrderItemsFallback(dbOrder, recentPool))
         const dbIds = new Set(enriched.map((o: any) => o.id))
         const localOnly = memMatches.filter((m) => m._fallbackOnly && !dbIds.has(m.id))
         return [...enriched, ...localOnly]
       }
-      return [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
+      return memMatches
     })
 
-  const fallback = restaurantId
-    ? memMatches
-    : [...memMatches, ...SAMPLE_ADMIN_ORDERS.filter((o) => statuses.includes(o.status))]
-  const result = await withTimeout(query, 3500, fallback)
-  setCached(cacheKey, result, 5)
+  const result = await withTimeout(query, 8000, memMatches)
+  if (succeeded) setCached(cacheKey, result, 5)
   return result
 }
 
@@ -1655,24 +1734,32 @@ export async function getTodayOrders(restaurantId?: string) {
 
 // --- Inventory ---
 export async function getCriticalInventory(restaurantId?: string) {
-  const cacheKey = `critical_inventory:${restaurantId || 'all'}`
+  const isSample = isSampleRestaurantId(restaurantId)
+  const cacheKey = `critical_inventory:${restaurantId || 'demo'}`
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
-  const fallback = restaurantId ? [] : SAMPLE_INVENTORY.filter((item) => item.quantity_available <= item.min_stock)
+  if (isSample || !restaurantId) {
+    const demoCrit = SAMPLE_INVENTORY.filter((item) => Number(item.quantity_available) <= Number(item.min_stock))
+    setCached(cacheKey, demoCrit, 20)
+    return demoCrit
+  }
 
-  let builder = supabase.from('inventory_items').select('*')
-  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
+  let succeeded = false
+  const query = supabase
+    .from('inventory_items')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .then(({ data, error }) => {
+      if (!error && data) {
+        succeeded = true
+        return data.filter((item: any) => Number(item.quantity_available) <= Number(item.min_stock))
+      }
+      return []
+    })
 
-  const query = builder.then(({ data, error }) => {
-    if (!error && data && (data.length > 0 || restaurantId)) {
-      return data.filter((item: any) => Number(item.quantity_available) <= Number(item.min_stock))
-    }
-    return fallback
-  })
-
-  const result = await withTimeout(query, 1200, fallback)
-  setCached(cacheKey, result, 20)
+  const result = await withTimeout(query, 8000, [])
+  if (succeeded) setCached(cacheKey, result, 20)
   return result
 }
 
@@ -1810,24 +1897,32 @@ export async function deleteInventoryItem(itemId: string, restaurantId?: string)
 }
 
 export async function getAllInventory(restaurantId?: string) {
-  const cacheKey = `all_inventory:${restaurantId || 'all'}`
+  const isSample = isSampleRestaurantId(restaurantId)
+  const cacheKey = `all_inventory:${restaurantId || 'demo'}`
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
-  const fallback = restaurantId ? [] : SAMPLE_INVENTORY
+  if (isSample || !restaurantId) {
+    setCached(cacheKey, [...SAMPLE_INVENTORY], 30)
+    return [...SAMPLE_INVENTORY]
+  }
 
-  let builder = supabase.from('inventory_items').select('*')
-  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
-
-  const query = builder
+  let succeeded = false
+  const query = supabase
+    .from('inventory_items')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
     .order('name', { ascending: true })
     .then(({ data, error }) => {
-      if (!error && data && (data.length > 0 || restaurantId)) return data
-      return fallback
+      if (!error && data) {
+        succeeded = true
+        return data
+      }
+      return []
     })
 
-  const result = await withTimeout(query, 1200, fallback)
-  setCached(cacheKey, result, 30)
+  const result = await withTimeout(query, 8000, [])
+  if (succeeded) setCached(cacheKey, result, 30)
   return result
 }
 
@@ -2024,7 +2119,7 @@ export async function getOrdersByPeriod(
   period: TimePeriod = 'today'
 ): Promise<any[]> {
   const isSample = isSampleRestaurantId(restaurantId)
-  const cacheKey = `orders_period:${restaurantId || 'all'}:${period}`
+  const cacheKey = `orders_period:${restaurantId || 'demo'}:${period}`
   const cached = getCached<any[]>(cacheKey)
   if (cached) return cached
 
@@ -2041,6 +2136,25 @@ export async function getOrdersByPeriod(
     startDate.setHours(0, 0, 0, 0)
   }
 
+  const recentPool = getRecentLocalOrders()
+
+  if (isSample || !restaurantId) {
+    const demoLocal = recentPool.filter((o) => {
+      if (!isSampleRestaurantId(o.restaurant_id)) return false
+      if (!startDate) return true
+      return new Date(o.created_at) >= startDate
+    })
+    const demoHist = [
+      ...demoLocal,
+      ...SAMPLE_HISTORICAL_ORDERS.filter((o) => {
+        if (!startDate) return true
+        return new Date(o.created_at) >= startDate
+      })
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    setCached(cacheKey, demoHist, 15)
+    return demoHist
+  }
+
   let builder = supabase
     .from('orders')
     .select(`
@@ -2055,28 +2169,21 @@ export async function getOrdersByPeriod(
         )
       )
     `)
+    .eq('restaurant_id', restaurantId)
     .order('created_at', { ascending: false })
 
-  if (restaurantId) builder = builder.eq('restaurant_id', restaurantId)
   if (startDate) builder = builder.gte('created_at', startDate.toISOString())
 
-  const recentPool = getRecentLocalOrders()
   const localMatches = recentPool.filter((o) => {
-    if (restaurantId && !isSample && o.restaurant_id && o.restaurant_id !== restaurantId) return false
+    if (o.restaurant_id !== restaurantId) return false
     if (!startDate) return true
     return new Date(o.created_at) >= startDate
   })
 
-  const fallback = [
-    ...localMatches,
-    ...SAMPLE_HISTORICAL_ORDERS.filter((o) => {
-      if (!startDate) return true
-      return new Date(o.created_at) >= startDate
-    })
-  ]
-
+  let succeeded = false
   const query = builder.then(({ data, error }) => {
-    if (!error && data && (data.length > 0 || restaurantId)) {
+    if (!error && data) {
+      succeeded = true
       const enriched = data.map((dbOrder: any) => enrichOrderItemsFallback(dbOrder, recentPool))
       const dbIds = new Set(enriched.map((o: any) => o.id))
       const localOnly = localMatches.filter((m) => m._fallbackOnly && !dbIds.has(m.id))
@@ -2084,11 +2191,11 @@ export async function getOrdersByPeriod(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
     }
-    return fallback
+    return localMatches
   })
 
-  const result = await withTimeout(query, 4000, fallback)
-  setCached(cacheKey, result, 15)
+  const result = await withTimeout(query, 8000, localMatches)
+  if (succeeded) setCached(cacheKey, result, 15)
   return result
 }
 
@@ -2321,6 +2428,29 @@ export async function saveInventoryItem(
   },
   restaurantId: string
 ) {
+  if (isSampleRestaurantId(restaurantId)) {
+    if (itemData.id) {
+      const existing = SAMPLE_INVENTORY.find((i) => i.id === itemData.id)
+      if (existing) {
+        existing.name = itemData.name.trim()
+        existing.quantity_available = Number(itemData.quantity_available)
+        existing.unit = itemData.unit.trim()
+        existing.min_stock = Number(itemData.min_stock)
+      }
+    } else {
+      SAMPLE_INVENTORY.push({
+        id: `inv-${Date.now()}`,
+        name: itemData.name.trim(),
+        quantity_available: Number(itemData.quantity_available),
+        unit: itemData.unit.trim(),
+        min_stock: Number(itemData.min_stock),
+      })
+    }
+    invalidateCache('all_inventory')
+    invalidateCache('critical_inventory')
+    return
+  }
+
   try {
     if (itemData.id) {
       const { error } = await supabase

@@ -86,6 +86,12 @@ export function getClientTenant(): string | null {
     return clean
   }
 
+  // En /tienda raíz (sin subdominio ni ?negocio=), es la Tienda Demo: limpiar tenant previo
+  if (window.location.pathname === '/tienda') {
+    try { window.sessionStorage.removeItem('comandapp_active_tenant') } catch {}
+    return null
+  }
+
   if (window.location.pathname.startsWith('/carrito') || window.location.pathname.startsWith('/seguimiento')) {
     try {
       const saved = window.sessionStorage.getItem('comandapp_active_tenant')

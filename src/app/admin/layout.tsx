@@ -27,7 +27,7 @@ import {
   type UserRole,
   type AdminUserProfile
 } from '@/lib/AdminContext'
-import { buildTenantUrl, getClientTenant, tenantPath } from '@/lib/tenant'
+import { buildTenantUrl, getClientTenant, matchRootDomain, tenantPath } from '@/lib/tenant'
 
 interface NavItem {
   name: string
@@ -52,6 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userRole, setUserRole] = useState<UserRole>('admin')
   const [userProfile, setUserProfile] = useState<AdminUserProfile | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isDemoSession, setIsDemoSession] = useState(false)
 
   // Close mobile menu whenever pathname changes
   useEffect(() => {
@@ -60,19 +61,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let cancelled = false
-    const hostTenant = getClientTenant()
-    const isDemo =
-      localStorage.getItem('demo_auth') === 'true' ||
-      new URLSearchParams(window.location.search).get('demo') === 'true'
+    let demoActive = false
+
+    // Limpiar siempre la llave antigua en localStorage que antes quedaba pegada entre sesiones reales
+    try {
+      localStorage.removeItem('demo_auth')
+    } catch {}
+
+    const activateDemoMode = async () => {
+      demoActive = true
+      try {
+        window.sessionStorage.setItem('comandapp_demo_mode', 'true')
+        window.sessionStorage.setItem('comandapp_active_tenant', 'don-carlos')
+      } catch {}
+      const demoRestaurant = await getRestaurant('don-carlos')
+      if (cancelled) return
+      setIsDemoSession(true)
+      setRestaurant(demoRestaurant || FALLBACK_RESTAURANT)
+      setUserRole('admin')
+      setUserProfile({
+        id: 'demo-admin-user',
+        restaurant_id: demoRestaurant?.id || FALLBACK_RESTAURANT.id,
+        role: 'admin',
+        full_name: 'Administrador Demo'
+      })
+      setLoading(false)
+    }
 
     const init = async () => {
       try {
-        // Traspaso de sesión cross-origin (desde el login en dominio general u otro subdominio)
+        const hostTenant = getClientTenant()
+        const urlParams = new URLSearchParams(window.location.search)
+        const explicitUrlDemo = urlParams.get('demo') === 'true'
+
+        // Traspaso de sesión real cross-origin (desde el login en dominio general u otro subdominio)
         if (typeof window !== 'undefined' && window.location.hash) {
           const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
           const at = hashParams.get('sat') || hashParams.get('access_token')
           const rt = hashParams.get('srt') || hashParams.get('refresh_token')
           if (at && rt) {
+            try {
+              window.sessionStorage.removeItem('comandapp_demo_mode')
+            } catch {}
             window.history.replaceState(null, '', window.location.pathname + window.location.search)
             try {
               await supabase.auth.setSession({ access_token: at, refresh_token: rt })
@@ -82,38 +112,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }
         }
 
-        const isDemo =
-          localStorage.getItem('demo_auth') === 'true' ||
-          new URLSearchParams(window.location.search).get('demo') === 'true'
-
-        if (new URLSearchParams(window.location.search).get('demo') === 'true') {
-          localStorage.setItem('demo_auth', 'true')
-        }
-
-        if (isDemo) {
-          const targetTenant = hostTenant || 'don-carlos'
-          const demoRestaurant = await getRestaurant(targetTenant)
-          if (cancelled) return
-          setRestaurant(demoRestaurant || FALLBACK_RESTAURANT)
-          setUserRole('admin')
-          setUserProfile({
-            id: 'demo-admin-user',
-            restaurant_id: demoRestaurant?.id || FALLBACK_RESTAURANT.id,
-            role: 'admin',
-            full_name: 'Administrador Demo'
-          })
-          setLoading(false)
+        // Si el usuario entró explícitamente con ?demo=true, abrir siempre el Modo Demostración (Rotisería Don Carlos)
+        if (explicitUrlDemo) {
+          await activateDemoMode()
           return
         }
 
+        // Prioridad absoluta a la sesión REAL de Supabase (ej: Rotisería Castelli, Tripp Burger, etc.)
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null } }), 3500)
+          setTimeout(() => resolve({ data: { session: null } }), 6000)
         )
         const { data: { session } } = await Promise.race([supabase.auth.getSession(), timeoutPromise])
         if (cancelled) return
 
         if (session) {
-          // El local y rol del usuario sale de su perfil en Supabase
+          try {
+            window.sessionStorage.removeItem('comandapp_demo_mode')
+          } catch {}
+          setIsDemoSession(false)
+
+          // El local y rol del usuario sale estrictamente de su perfil en Supabase
           const { data: profile } = await supabase
             .from('profiles')
             .select('id, restaurant_id, role, full_name')
@@ -140,24 +158,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const own = await getRestaurant(profile.restaurant_id)
             if (cancelled) return
 
-            // Redirección inicial según rol si entra a la raíz /admin
+            const ownSlug = own.subdomain.toLowerCase()
             const defaultTarget = role === 'cook' ? '/admin/cocina' : role === 'seller' ? '/admin/pos' : '/admin'
 
-            // Si está en el dominio base o en el subdominio de otro local, llevarlo al suyo propio
-            if (!hostTenant || own.subdomain.toLowerCase() !== hostTenant) {
-              const target = buildTenantUrl(own.subdomain, defaultTarget)
-              const transferHash = new URLSearchParams({
-                sat: session.access_token,
-                srt: session.refresh_token
-              })
-              window.location.href = `${target}#${transferHash.toString()}`
-              return
+            try {
+              window.sessionStorage.setItem('comandapp_active_tenant', ownSlug)
+            } catch {}
+
+            // Si estamos en dominio raíz con soporte de subdominios propios (comandapp.com / localhost), redirigir al subdominio del local
+            if (matchRootDomain(window.location.host)) {
+              if (!hostTenant || ownSlug !== hostTenant) {
+                const target = buildTenantUrl(own.subdomain, defaultTarget)
+                const transferHash = new URLSearchParams({
+                  sat: session.access_token,
+                  srt: session.refresh_token
+                })
+                window.location.href = `${target}#${transferHash.toString()}`
+                return
+              }
+            } else {
+              // En hosts sin subdominios (ej: *.vercel.app), sincronizar ?negocio= en la URL sin recargar
+              if (hostTenant !== ownSlug) {
+                const updatedUrl = tenantPath(window.location.pathname, own.subdomain)
+                window.history.replaceState(null, '', updatedUrl)
+              }
             }
 
             setRestaurant(own)
             setLoading(false)
             return
           }
+        }
+
+        // Solo si NO hay sesión real activa, permitir continuar una sesión de demostración en la pestaña actual
+        let storedDemo = false
+        try {
+          storedDemo = window.sessionStorage.getItem('comandapp_demo_mode') === 'true'
+        } catch {}
+
+        if (storedDemo) {
+          await activateDemoMode()
+          return
         }
 
         router.push('/login')
@@ -169,7 +210,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT' && !isDemo) {
+      if (event === 'SIGNED_OUT' && !demoActive) {
         router.push('/login')
       }
     })
@@ -221,12 +262,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname, userRole, loading, router])
 
   const handleLogout = async () => {
-    localStorage.removeItem('demo_auth')
+    try {
+      localStorage.removeItem('demo_auth')
+      window.sessionStorage.removeItem('comandapp_demo_mode')
+      window.sessionStorage.removeItem('comandapp_active_tenant')
+    } catch {}
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  const storeHref = restaurant ? tenantPath('/tienda', restaurant.subdomain) : '/tienda'
+  const adminNavHref = (href: string) =>
+    isDemoSession ? `${href}?demo=true` : tenantPath(href, restaurant?.subdomain || null)
+
+  const storeHref = isDemoSession
+    ? '/tienda'
+    : restaurant
+      ? tenantPath('/tienda', restaurant.subdomain)
+      : '/tienda'
 
   if (loading) {
     return (
@@ -320,7 +372,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       return (
                         <Link
                           key={item.name}
-                          href={item.href}
+                          href={adminNavHref(item.href)}
                           className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                             isActive
                               ? 'border shadow-sm font-semibold'
@@ -364,7 +416,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 >
                   {userRole === 'admin' && (
                     <Link 
-                      href="/admin/configuracion" 
+                      href={adminNavHref('/admin/configuracion')} 
                       className={`flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl transition-all ${
                         pathname === '/admin/configuracion'
                           ? 'border shadow-sm font-semibold'
@@ -453,7 +505,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                           return (
                             <Link
                               key={item.name}
-                              href={item.href}
+                              href={adminNavHref(item.href)}
                               onClick={() => setMobileMenuOpen(false)}
                               className={`flex items-center px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
                                 isActive 
@@ -476,7 +528,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       {userRole === 'admin' && (
                         <div className="pt-4 border-t border-white/10">
                           <Link
-                            href="/admin/configuracion"
+                            href={adminNavHref('/admin/configuracion')}
                             onClick={() => setMobileMenuOpen(false)}
                             className="flex items-center px-4 py-3 rounded-2xl text-sm font-semibold text-[color:var(--store-text-soft)] hover:bg-white/5"
                           >
