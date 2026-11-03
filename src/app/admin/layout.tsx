@@ -2,39 +2,31 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-    LayoutDashboard,
-    ChefHat,
-    Calculator,
-    PackageSearch,
-    Settings,
-    LogOut,
-    Flame,
-    Loader2,
-    Store,
-    UtensilsCrossed,
-    Menu,
-    X
-  } from 'lucide-react'
+import { 
+  LayoutDashboard, 
+  ChefHat, 
+  Calculator, 
+  PackageSearch, 
+  Settings, 
+  LogOut, 
+  Flame, 
+  Loader2,
+  Store,
+  UtensilsCrossed,
+  Menu,
+  X
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useCallback, useEffect, useState } from 'react'
-import {
-  getRestaurant,
-  FALLBACK_RESTAURANT,
-  invalidateCache,
-  isSampleRestaurantId,
-  type RestaurantInfo
-} from '@/lib/api'
-import {
-  AdminRestaurantContext,
+import { useEffect, useState } from 'react'
+import { getRestaurant, getRestaurantStrict, FALLBACK_RESTAURANT, invalidateCache, type RestaurantInfo } from '@/lib/api'
+import { 
+  AdminRestaurantContext, 
   AdminSetRestaurantContext,
   AdminUserRoleContext,
   AdminUserProfileContext,
-  AdminNavHrefContext,
   type UserRole,
   type AdminUserProfile
 } from '@/lib/AdminContext'
-import { subscribeToStoreRealtime } from '@/lib/realtime'
 import { buildTenantUrl, getClientTenant, matchRootDomain, tenantPath } from '@/lib/tenant'
 
 interface NavItem {
@@ -62,14 +54,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isDemoSession, setIsDemoSession] = useState(false)
 
-  const adminNavHref = useCallback(
-    (href: string) =>
-      isDemoSession
-        ? `${href}${href.includes('?') ? '&' : '?'}demo=true`
-        : tenantPath(href, restaurant?.subdomain || null),
-    [isDemoSession, restaurant?.subdomain]
-  )
-
   // Close mobile menu whenever pathname changes
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -82,14 +66,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Limpiar siempre la llave antigua en localStorage que antes quedaba pegada entre sesiones reales
     try {
       localStorage.removeItem('demo_auth')
-    } catch { }
+    } catch {}
 
     const activateDemoMode = async () => {
       demoActive = true
       try {
         window.sessionStorage.setItem('comandapp_demo_mode', 'true')
         window.sessionStorage.setItem('comandapp_active_tenant', 'don-carlos')
-      } catch { }
+      } catch {}
       const demoRestaurant = await getRestaurant('don-carlos')
       if (cancelled) return
       setIsDemoSession(true)
@@ -118,7 +102,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           if (at && rt) {
             try {
               window.sessionStorage.removeItem('comandapp_demo_mode')
-            } catch { }
+            } catch {}
             window.history.replaceState(null, '', window.location.pathname + window.location.search)
             try {
               await supabase.auth.setSession({ access_token: at, refresh_token: rt })
@@ -138,15 +122,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
           setTimeout(() => resolve({ data: { session: null } }), 6000)
         )
-        const {
-          data: { session }
-        } = await Promise.race([supabase.auth.getSession(), timeoutPromise])
+        const { data: { session } } = await Promise.race([supabase.auth.getSession(), timeoutPromise])
         if (cancelled) return
 
         if (session) {
           try {
             window.sessionStorage.removeItem('comandapp_demo_mode')
-          } catch { }
+          } catch {}
           setIsDemoSession(false)
 
           // El local y rol del usuario sale estrictamente de su perfil en Supabase
@@ -167,6 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               full_name: profile.full_name
             })
 
+            // Si es un cliente común, no debe entrar al panel administrativo
             if (role === 'customer') {
               router.push('/tienda')
               return
@@ -180,7 +163,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             try {
               window.sessionStorage.setItem('comandapp_active_tenant', ownSlug)
-            } catch { }
+            } catch {}
 
             // Si estamos en dominio raíz con soporte de subdominios propios (comandapp.com / localhost), redirigir al subdominio del local
             if (matchRootDomain(window.location.host)) {
@@ -211,7 +194,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         let storedDemo = false
         try {
           storedDemo = window.sessionStorage.getItem('comandapp_demo_mode') === 'true'
-        } catch { }
+        } catch {}
 
         if (storedDemo) {
           await activateDemoMode()
@@ -226,426 +209,371 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     init()
 
-      const {
-        data: { subscription }
-      } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'SIGNED_OUT' && !demoActive) {
-          router.push('/login')
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && !demoActive) {
+        router.push('/login')
+      }
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [router])
+
+  // Sincronización en tiempo real del restaurante entre distintos dispositivos/usuarios
+  useEffect(() => {
+    if (!restaurant?.id) return
+    const channel = supabase
+      .channel(`admin-restaurant-sync-${restaurant.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'restaurants', filter: `id=eq.${restaurant.id}` },
+        async () => {
+          invalidateCache('restaurant')
+          invalidateCache('restaurant_strict')
+          const fresh = await getRestaurant(restaurant.id)
+          if (fresh) setRestaurant(fresh)
         }
-      })
-
-      return () => {
-        cancelled = true
-        subscription.unsubscribe()
-      }
-    }, [router])
-
-    // Sincronización en tiempo real del restaurante entre distintos dispositivos/pestañas
-    useEffect(() => {
-      if (!restaurant?.id) return
-
-      const refreshRestaurant = async () => {
-        invalidateCache('restaurant')
-        invalidateCache('restaurant_strict')
-        const fresh = await getRestaurant(isDemoSession ? 'don-carlos' : restaurant.id)
-        if (fresh) setRestaurant(fresh)
-      }
-
-      const unsubscribeBroadcast = subscribeToStoreRealtime(restaurant.id, (evt) => {
-        if (evt.type === 'store_config_update') {
-          void refreshRestaurant()
-        }
-      })
-
-      if (isSampleRestaurantId(restaurant.id)) {
-        return () => {
-          unsubscribeBroadcast()
-        }
-      }
-
-      const uid = Math.random().toString(36).slice(2, 8)
-      const channel = supabase
-        .channel(`admin-restaurant-sync-${restaurant.id}-${uid}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'restaurants', filter: `id=eq.${restaurant.id}` },
-              () => {
-        void refreshRestaurant()
-      }
       )
       .subscribe()
 
     return () => {
-      unsubscribeBroadcast()
-      supabase.removeChannel(channel).catch(() => { })
+      supabase.removeChannel(channel)
     }
-}, [restaurant?.id, isDemoSession])
+  }, [restaurant?.id])
 
-// Route Guard: Bloqueo de rutas en tiempo real según rol conservando tenant/demo params
-useEffect(() => {
-  if (loading) return
+  // Route Guard: Bloqueo de rutas en tiempo real según rol
+  useEffect(() => {
+    if (loading) return
 
-  if (userRole === 'cook') {
-    if (pathname !== '/admin/cocina') {
-      router.replace(adminNavHref('/admin/cocina'))
+    if (userRole === 'cook') {
+      if (pathname !== '/admin/cocina') {
+        router.replace('/admin/cocina')
+      }
+    } else if (userRole === 'seller') {
+      const sellerAllowed = ['/admin/pos', '/admin/cocina']
+      if (!sellerAllowed.includes(pathname)) {
+        router.replace('/admin/pos')
+      }
+    } else if (userRole === 'customer') {
+      router.replace('/tienda')
     }
-  } else if (userRole === 'seller') {
-    const sellerAllowed = ['/admin/pos', '/admin/cocina']
-    if (!sellerAllowed.includes(pathname)) {
-      router.replace(adminNavHref('/admin/pos'))
-    }
-  } else if (userRole === 'customer') {
-    router.replace('/tienda')
+  }, [pathname, userRole, loading, router])
+
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem('demo_auth')
+      window.sessionStorage.removeItem('comandapp_demo_mode')
+      window.sessionStorage.removeItem('comandapp_active_tenant')
+    } catch {}
+    await supabase.auth.signOut()
+    router.push('/login')
   }
-  }, [pathname, userRole, loading, router, adminNavHref])
 
-const handleLogout = async () => {
-  try {
-    localStorage.removeItem('demo_auth')
-    window.sessionStorage.removeItem('comandapp_demo_mode')
-    window.sessionStorage.removeItem('comandapp_active_tenant')
-  } catch { }
-  await supabase.auth.signOut()
-  router.push('/login')
-}
+  const adminNavHref = (href: string) =>
+    isDemoSession ? `${href}?demo=true` : tenantPath(href, restaurant?.subdomain || null)
 
-const storeHref = isDemoSession
-  ? '/tienda'
-  : restaurant
-    ? tenantPath('/tienda', restaurant.subdomain)
-    : '/tienda'
+  const storeHref = isDemoSession
+    ? '/tienda'
+    : restaurant
+      ? tenantPath('/tienda', restaurant.subdomain)
+      : '/tienda'
 
-if (loading) {
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-[color:var(--store-subtle-bg)] items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-[color:var(--brand-primary)]" />
+      </div>
+    )
+  }
+
+  const primaryColor = restaurant?.primary_color || '#e59324'
+  const secondaryColor = restaurant?.secondary_color || '#d34e2c'
+  const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
+  const fontClass = `font-style-${restaurant?.font_style || 'serif'}`
+
   return (
-    <div className="flex h-screen bg-[color:var(--store-subtle-bg)] items-center justify-center">
-      <Loader2 className="w-10 h-10 animate-spin text-[color:var(--brand-primary)]" />
-    </div>
-  )
-}
-
-const primaryColor = restaurant?.primary_color || '#e59324'
-const secondaryColor = restaurant?.secondary_color || '#d34e2c'
-const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
-const fontClass = `font-style-${restaurant?.font_style || 'serif'}`
-
-return (
-  <AdminRestaurantContext.Provider value={restaurant}>
-    <AdminSetRestaurantContext.Provider value={setRestaurant}>
-      <AdminUserRoleContext.Provider value={userRole}>
-        <AdminUserProfileContext.Provider value={userProfile}>
-            <AdminNavHrefContext.Provider value={adminNavHref}>
-              <div
-                className={`flex h-screen text-[#fcf9f5] overflow-hidden ${themeClass} ${fontClass}`}
-                style={
-                  {
-                    '--brand-primary': primaryColor,
-                    '--brand-secondary': secondaryColor,
-                    '--color-primary': primaryColor,
-                    '--color-secondary': secondaryColor,
-                    '--primary': primaryColor,
-                    backgroundColor: 'var(--store-bg, #151210)'
-                  } as React.CSSProperties
-                }
+    <AdminRestaurantContext.Provider value={restaurant}>
+      <AdminSetRestaurantContext.Provider value={setRestaurant}>
+        <AdminUserRoleContext.Provider value={userRole}>
+          <AdminUserProfileContext.Provider value={userProfile}>
+            <div 
+              className={`flex h-screen text-[#fcf9f5] overflow-hidden ${themeClass} ${fontClass}`}
+              style={{
+                '--brand-primary': primaryColor,
+                '--brand-secondary': secondaryColor,
+                '--color-primary': primaryColor,
+                '--color-secondary': secondaryColor,
+                '--primary': primaryColor,
+                backgroundColor: 'var(--store-bg, #151210)'
+              } as React.CSSProperties}
+            >
+              {/* Desktop Sidebar */}
+              <aside 
+                className="w-64 border-r flex flex-col justify-between hidden md:flex transition-colors shrink-0"
+                style={{
+                  backgroundColor: 'var(--store-header-bg, #1b1511)',
+                  borderColor: `${primaryColor}20`
+                }}
               >
-                {/* Desktop Sidebar */}
-                <aside
-                  className="w-64 border-r flex flex-col justify-between hidden md:flex transition-colors shrink-0 no-print"
+                <div>
+                  <div 
+                    className="min-h-[6.5rem] py-3 flex items-center px-6 border-b transition-colors"
+                    style={{ borderColor: `${primaryColor}20` }}
+                  >
+                    <Link href={storeHref} className="flex items-center space-x-3.5 group">
+                      {restaurant?.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img 
+                          src={restaurant.logo_url} 
+                          alt={restaurant.name} 
+                          className="w-14 h-14 object-cover rounded-2xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-transform shrink-0"
+                          style={{ borderColor: `${primaryColor}50` }}
+                        />
+                      ) : (
+                        <div 
+                          className="p-2.5 rounded-2xl group-hover:rotate-6 transition-transform shadow-md text-white shrink-0"
+                          style={{
+                            background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                            boxShadow: `0 4px 14px ${primaryColor}40`
+                          }}
+                        >
+                          <Flame className="w-6 h-6" />
+                        </div>
+                      )}
+                      <div className="flex flex-col">
+                        <span className="font-rustic text-xl font-bold tracking-tight text-white">
+                          Comand<span style={{ color: primaryColor }}>App</span>
+                        </span>
+                        <span className="text-[10px] text-[color:var(--store-text-muted)] -mt-1 font-semibold truncate max-w-[10rem]">
+                          {restaurant?.name || 'Panel de Cocina'}
+                        </span>
+                        <span 
+                          className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5 w-fit border uppercase tracking-wider"
+                          style={{
+                            backgroundColor: userRole === 'admin' ? `${primaryColor}20` : userRole === 'cook' ? 'rgba(234, 88, 12, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                            borderColor: userRole === 'admin' ? `${primaryColor}50` : userRole === 'cook' ? 'rgba(234, 88, 12, 0.5)' : 'rgba(59, 130, 246, 0.5)',
+                            color: userRole === 'admin' ? primaryColor : userRole === 'cook' ? '#fb923c' : '#60a5fa'
+                          }}
+                        >
+                          {userRole === 'cook' ? '👨‍🍳 Cocina' : userRole === 'seller' ? '💳 Ventas / POS' : '👑 Administrador'}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                  
+                  <nav className="p-4 space-y-1.5">
+                    <div className="text-[11px] font-semibold text-[color:var(--store-text-faint)] uppercase tracking-wider mb-3 px-3">
+                      Módulos del Local
+                    </div>
+                    {ALL_NAVIGATION.filter(item => item.roles.includes(userRole)).map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <Link
+                          key={item.name}
+                          href={adminNavHref(item.href)}
+                          className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
+                            isActive
+                              ? 'border shadow-sm font-semibold'
+                              : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
+                          }`}
+                          style={isActive ? {
+                            backgroundColor: `${primaryColor}18`,
+                            color: primaryColor,
+                            borderColor: `${primaryColor}50`,
+                          } : undefined}
+                        >
+                          <item.icon 
+                            className="mr-3 h-4 w-4 transition-colors" 
+                            style={{ color: isActive ? primaryColor : 'var(--store-text-faint, #8c6f59)' }} 
+                          />
+                          {item.name}
+                        </Link>
+                      )
+                    })}
+
+                    <div 
+                      className="pt-4 border-t mt-4"
+                      style={{ borderColor: `${primaryColor}20` }}
+                    >
+                      <Link 
+                        href={storeHref}
+                        target="_blank"
+                        className="flex items-center px-3 py-2.5 text-xs text-[color:var(--store-text-muted)] hover:bg-white/5 rounded-xl transition-colors gap-2"
+                        style={{ color: 'var(--store-text-soft, #c7af9a)' }}
+                      >
+                        <Store className="w-4 h-4" style={{ color: primaryColor }} />
+                        <span>Ver Tienda Pública</span>
+                      </Link>
+                    </div>
+                  </nav>
+                </div>
+
+                <div 
+                  className="p-4 border-t space-y-1"
+                  style={{ borderColor: `${primaryColor}20` }}
+                >
+                  {userRole === 'admin' && (
+                    <Link 
+                      href={adminNavHref('/admin/configuracion')} 
+                      className={`flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl transition-all ${
+                        pathname === '/admin/configuracion'
+                          ? 'border shadow-sm font-semibold'
+                          : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
+                      }`}
+                      style={pathname === '/admin/configuracion' ? {
+                        backgroundColor: `${primaryColor}18`,
+                        color: primaryColor,
+                        borderColor: `${primaryColor}50`,
+                      } : undefined}
+                    >
+                      <Settings 
+                        className="mr-3 h-4 w-4" 
+                        style={{ color: pathname === '/admin/configuracion' ? primaryColor : 'var(--store-text-faint, #8c6f59)' }} 
+                      />
+                      Personalización & Ajustes
+                    </Link>
+                  )}
+                  <button 
+                    onClick={handleLogout} 
+                    className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[color:var(--store-text-faint)] hover:bg-red-500/10 hover:text-red-400 transition-all"
+                  >
+                    <LogOut className="mr-3 h-4 w-4" />
+                    Cerrar Sesión
+                  </button>
+                </div>
+              </aside>
+
+              {/* Main Content & Mobile Header */}
+              <main className="flex-1 flex flex-col overflow-hidden relative">
+                <header 
+                  className="h-16 border-b flex items-center justify-between px-4 sm:px-6 md:hidden z-30 shrink-0"
                   style={{
                     backgroundColor: 'var(--store-header-bg, #1b1511)',
                     borderColor: `${primaryColor}20`
                   }}
                 >
-                  <div>
-                    <div
-                      className="min-h-[6.5rem] py-3 flex items-center px-6 border-b transition-colors"
-                      style={{ borderColor: `${primaryColor}20` }}
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                      className="p-2 rounded-xl border border-[color:var(--store-border)] hover:bg-white/10 text-white"
+                      aria-label="Abrir menú"
                     >
-                      <Link href={storeHref} className="flex items-center space-x-3.5 group">
-                        {restaurant?.logo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={restaurant.logo_url}
-                            alt={restaurant.name}
-                            className="w-14 h-14 object-cover rounded-2xl bg-black/40 p-1 border shadow-md group-hover:scale-105 transition-transform shrink-0"
-                            style={{ borderColor: `${primaryColor}50` }}
-                          />
-                        ) : (
-                          <div
-                            className="p-2.5 rounded-2xl group-hover:rotate-6 transition-transform shadow-md text-white shrink-0"
-                            style={{
-                              background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-                              boxShadow: `0 4px 14px ${primaryColor}40`
-                            }}
-                          >
-                            <Flame className="w-6 h-6" />
-                          </div>
-                        )}
-                        <div className="flex flex-col">
-                          <span className="font-rustic text-xl font-bold tracking-tight text-white">
-                            Comand<span style={{ color: primaryColor }}>App</span>
-                          </span>
-                          <span className="text-[10px] text-[color:var(--store-text-muted)] -mt-1 font-semibold truncate max-w-[10rem]">
-                            {restaurant?.name || 'Panel de Cocina'}
-                          </span>
-                          <span
-                            className="text-[9px] font-bold px-2 py-0.5 rounded-full mt-1.5 w-fit border uppercase tracking-wider"
-                            style={{
-                              backgroundColor:
-                                userRole === 'admin'
-                                  ? `${primaryColor}20`
-                                  : userRole === 'cook'
-                                    ? 'rgba(234, 88, 12, 0.2)'
-                                    : 'rgba(59, 130, 246, 0.2)',
-                              borderColor:
-                                userRole === 'admin'
-                                  ? `${primaryColor}50`
-                                  : userRole === 'cook'
-                                    ? 'rgba(234, 88, 12, 0.5)'
-                                    : 'rgba(59, 130, 246, 0.5)',
-                              color:
-                                userRole === 'admin'
-                                  ? primaryColor
-                                  : userRole === 'cook'
-                                    ? '#fb923c'
-                                    : '#60a5fa'
-                            }}
-                          >
-                            {userRole === 'cook'
-                              ? '👨‍🍳 Cocina'
-                              : userRole === 'seller'
-                                ? '💳 Ventas / POS'
-                                : '👑 Administrador'}
-                          </span>
-                        </div>
-                      </Link>
-                    </div>
+                      {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                    </button>
+                    <Link href={storeHref} className="flex items-center space-x-2">
+                      <Flame className="w-5 h-5" style={{ color: primaryColor }} />
+                      <span className="font-rustic text-lg font-bold tracking-tight text-white">
+                        Comand<span style={{ color: primaryColor }}>App</span>
+                      </span>
+                    </Link>
+                  </div>
 
-                    <nav className="p-4 space-y-1.5">
-                      <div className="text-[11px] font-semibold text-[color:var(--store-text-faint)] uppercase tracking-wider mb-3 px-3">
-                        Módulos del Local
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      href={storeHref}
+                      target="_blank"
+                      className="p-2 rounded-xl text-xs hover:bg-white/10 text-[color:var(--store-text-muted)] hover:text-white"
+                      title="Ver Tienda"
+                    >
+                      <Store className="w-4 h-4" />
+                    </Link>
+                    <button 
+                      onClick={handleLogout} 
+                      className="text-xs px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors font-medium"
+                    >
+                      Salir
+                    </button>
+                  </div>
+                </header>
+
+                {/* Mobile Navigation Drawer Overlay */}
+                {mobileMenuOpen && (
+                  <div 
+                    className="fixed inset-0 top-16 z-40 bg-black/80 backdrop-blur-md md:hidden animate-in fade-in flex flex-col justify-between p-6 overflow-y-auto"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className="space-y-4" onClick={e => e.stopPropagation()}>
+                      <div className="text-xs font-bold text-[color:var(--store-text-muted)] uppercase tracking-wider mb-2">
+                        Navegación de {restaurant?.name || 'ComandApp'}
                       </div>
-                      {ALL_NAVIGATION.filter((item) => item.roles.includes(userRole)).map((item) => {
-                        const isActive = pathname === item.href
-                        return (
-                          <Link
-                            key={item.name}
-                            href={adminNavHref(item.href)}
-                            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
-                              isActive
-                                ? 'border shadow-sm font-semibold'
-                                : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
-                            }`}
-                            style={
-                              isActive
-                                ? {
-                                    backgroundColor: `${primaryColor}18`,
-                                    color: primaryColor,
-                                    borderColor: `${primaryColor}50`
-                                  }
-                                : undefined
-                            }
-                          >
-                            <item.icon
-                              className="mr-3 h-4 w-4 transition-colors"
-                              style={{ color: isActive ? primaryColor : 'var(--store-text-faint, #8c6f59)' }}
-                            />
-                            {item.name}
-                          </Link>
-                        )
-                      })}
 
-                      <div className="pt-4 border-t mt-4" style={{ borderColor: `${primaryColor}20` }}>
+                      <div className="space-y-2">
+                        {ALL_NAVIGATION.filter(item => item.roles.includes(userRole)).map((item) => {
+                          const isActive = pathname === item.href
+                          return (
+                            <Link
+                              key={item.name}
+                              href={adminNavHref(item.href)}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`flex items-center px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                isActive 
+                                  ? 'border shadow-md' 
+                                  : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
+                              }`}
+                              style={isActive ? {
+                                backgroundColor: `${primaryColor}20`,
+                                color: primaryColor,
+                                borderColor: `${primaryColor}50`,
+                              } : undefined}
+                            >
+                              <item.icon className="mr-3 h-5 w-5" style={{ color: isActive ? primaryColor : 'var(--store-text-muted)' }} />
+                              <span>{item.name}</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+
+                      {userRole === 'admin' && (
+                        <div className="pt-4 border-t border-white/10">
+                          <Link
+                            href={adminNavHref('/admin/configuracion')}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center px-4 py-3 rounded-2xl text-sm font-semibold text-[color:var(--store-text-soft)] hover:bg-white/5"
+                          >
+                            <Settings className="mr-3 h-5 w-5" style={{ color: primaryColor }} />
+                            <span>Personalización & Ajustes</span>
+                          </Link>
+                        </div>
+                      )}
+
+                      <div className="pt-2">
                         <Link
                           href={storeHref}
                           target="_blank"
-                          className="flex items-center px-3 py-2.5 text-xs text-[color:var(--store-text-muted)] hover:bg-white/5 rounded-xl transition-colors gap-2"
-                          style={{ color: 'var(--store-text-soft, #c7af9a)' }}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center px-4 py-3 rounded-2xl text-sm font-semibold text-[color:var(--store-text-muted)] hover:bg-white/5"
                         >
-                          <Store className="w-4 h-4" style={{ color: primaryColor }} />
+                          <Store className="mr-3 h-5 w-5" style={{ color: primaryColor }} />
                           <span>Ver Tienda Pública</span>
                         </Link>
                       </div>
-                    </nav>
-                  </div>
+                    </div>
 
-                  <div className="p-4 border-t space-y-1" style={{ borderColor: `${primaryColor}20` }}>
-                    {userRole === 'admin' && (
-                      <Link
-                        href={adminNavHref('/admin/configuracion')}
-                        className={`flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl transition-all ${
-                          pathname === '/admin/configuracion'
-                            ? 'border shadow-sm font-semibold'
-                            : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
-                        }`}
-                        style={
-                          pathname === '/admin/configuracion'
-                            ? {
-                                backgroundColor: `${primaryColor}18`,
-                                color: primaryColor,
-                                borderColor: `${primaryColor}50`
-                              }
-                            : undefined
-                        }
+                    <div className="pt-6 border-t border-white/10" onClick={e => e.stopPropagation()}>
+                      <button 
+                        onClick={handleLogout} 
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
                       >
-                        <Settings
-                          className="mr-3 h-4 w-4"
-                          style={{
-                            color: pathname === '/admin/configuracion' ? primaryColor : 'var(--store-text-faint, #8c6f59)'
-                          }}
-                        />
-                        Personalización & Ajustes
-                      </Link>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex w-full items-center px-3 py-2 text-xs font-medium rounded-xl text-[color:var(--store-text-faint)] hover:bg-red-500/10 hover:text-red-400 transition-all"
-                    >
-                      <LogOut className="mr-3 h-4 w-4" />
-                      Cerrar Sesión
-                    </button>
+                        <LogOut className="w-4 h-4" />
+                        <span>Cerrar Sesión</span>
+                      </button>
+                    </div>
                   </div>
-                </aside>
+                )}
 
-                    {/* Main Content & Mobile Header */}
-                    <main className="flex-1 flex flex-col overflow-hidden relative">
-                      <header
-                        className="h-16 border-b flex items-center justify-between px-4 sm:px-6 md:hidden z-30 shrink-0 no-print"
-                        style={{
-                          backgroundColor: 'var(--store-header-bg, #1b1511)',
-                          borderColor: `${primaryColor}20`
-                        }}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <button
-                            type="button"
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="p-2 rounded-xl border border-[color:var(--store-border)] hover:bg-white/10 text-white"
-                            aria-label="Abrir menú"
-                          >
-                            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                          </button>
-                          <Link href={storeHref} className="flex items-center space-x-2">
-                            <Flame className="w-5 h-5" style={{ color: primaryColor }} />
-                            <span className="font-rustic text-lg font-bold tracking-tight text-white">
-                              Comand<span style={{ color: primaryColor }}>App</span>
-                            </span>
-                          </Link>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={storeHref}
-                            target="_blank"
-                            className="p-2 rounded-xl text-xs hover:bg-white/10 text-[color:var(--store-text-muted)] hover:text-white"
-                            title="Ver Tienda"
-                          >
-                            <Store className="w-4 h-4" />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={handleLogout}
-                            className="text-xs px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors font-medium"
-                          >
-                            Salir
-                          </button>
-                        </div>
-                </header>
-
-                  {/* Mobile Navigation Drawer Overlay */}
-                  {mobileMenuOpen && (
-                    <div
-                      className="fixed inset-0 top-16 z-40 bg-black/80 backdrop-blur-md md:hidden animate-in fade-in flex flex-col justify-between p-6 overflow-y-auto no-print"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-              <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
-                <div className="text-xs font-bold text-[color:var(--store-text-muted)] uppercase tracking-wider mb-2">
-                  Navegación de {restaurant?.name || 'ComandApp'}
+                <div 
+                  className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 transition-colors"
+                  style={{ backgroundColor: 'var(--store-bg, #151210)' }}
+                >
+                  {children}
                 </div>
-
-                    <div className="space-y-2">
-                      {ALL_NAVIGATION.filter((item) => item.roles.includes(userRole)).map((item) => {
-                        const isActive = pathname === item.href
-                        return (
-                          <Link
-                            key={item.name}
-                            href={adminNavHref(item.href)}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={`flex items-center px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${isActive
-                                ? 'border shadow-md'
-                                : 'text-[color:var(--store-text-soft)] hover:bg-white/5 hover:text-white'
-                              }`}
-                            style={
-                              isActive
-                                ? {
-                                  backgroundColor: `${primaryColor}20`,
-                                  color: primaryColor,
-                                  borderColor: `${primaryColor}50`
-                                }
-                                : undefined
-                            }
-                          >
-                            <item.icon
-                              className="mr-3 h-5 w-5"
-                              style={{ color: isActive ? primaryColor : 'var(--store-text-muted)' }}
-                            />
-                            <span>{item.name}</span>
-                          </Link>
-                        )
-                      })}
-                    </div>
-
-                              { userRole === 'admin' && (
-                                <div className="pt-4 border-t border-white/10">
-                                  <Link
-                                    href={adminNavHref('/admin/configuracion')}
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="flex items-center px-4 py-3 rounded-2xl text-sm font-semibold text-[color:var(--store-text-soft)] hover:bg-white/5"
-                                  >
-                                    <Settings className="mr-3 h-5 w-5" style={{ color: primaryColor }} />
-                                    <span>Personalización & Ajustes</span>
-                                  </Link>
-                          </div>
-                        )}
-
-                        <div className="pt-2">
-                          <Link
-                            href={storeHref}
-                            target="_blank"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center px-4 py-3 rounded-2xl text-sm font-semibold text-[color:var(--store-text-muted)] hover:bg-white/5"
-                          >
-                            <Store className="mr-3 h-5 w-5" style={{ color: primaryColor }} />
-                            <span>Ver Tienda Pública</span>
-                          </Link>
-                        </div>
-                      </div>
-
-                      <div className="pt-6 border-t border-white/10" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={handleLogout}
-                          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span>Cerrar Sesión</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                      <div
-                        className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 transition-colors"
-                        style={{ backgroundColor: 'var(--store-bg, #151210)' }}
-                      >
-                        {children}
-                      </div>
-            </main>
-          </div>
-        </AdminNavHrefContext.Provider>
-      </AdminUserProfileContext.Provider>
-    </AdminUserRoleContext.Provider>
-  </AdminSetRestaurantContext.Provider>
-    </AdminRestaurantContext.Provider >
+              </main>
+            </div>
+          </AdminUserProfileContext.Provider>
+        </AdminUserRoleContext.Provider>
+      </AdminSetRestaurantContext.Provider>
+    </AdminRestaurantContext.Provider>
   )
 }

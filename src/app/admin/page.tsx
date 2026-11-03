@@ -23,8 +23,7 @@ import {
   Award,
   ArrowRight,
   RefreshCw,
-  BellRing,
-  UtensilsCrossed
+  BellRing
 } from 'lucide-react'
 import {
   getGerenciaStats,
@@ -35,12 +34,11 @@ import {
   type TimePeriod
 } from '@/lib/api'
 import { subscribeToStoreRealtime } from '@/lib/realtime'
-import { useAdminRestaurant, useAdminNavHref } from '@/lib/AdminContext'
+import { useAdminRestaurant } from '@/lib/AdminContext'
 import Link from 'next/link'
 
 export default function AdminDashboard() {
   const restaurant = useAdminRestaurant()
-  const adminHref = useAdminNavHref()
   const restaurantId = restaurant?.id
   const primaryColor = restaurant?.primary_color || '#e59324'
 
@@ -51,7 +49,6 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [refillLoadingId, setRefillLoadingId] = useState<string | null>(null)
   const [refillToast, setRefillToast] = useState<string | null>(null)
-  const [errorToast, setErrorToast] = useState<string | null>(null)
 
   // Live WebSocket state & notifications
   const [wsConnected, setWsConnected] = useState(false)
@@ -170,14 +167,13 @@ useEffect(() => {
 const handleRefill = async (itemId: string, itemName: string) => {
   try {
     setRefillLoadingId(itemId)
-    await refillInventory(itemId, 10, restaurantId)
+    await refillInventory(itemId, 10)
     setRefillToast(`+10 unidades cargadas a ${itemName}`)
     setTimeout(() => setRefillToast(null), 3500)
     loadData(true, true)
   } catch (error) {
     console.error("Error refilling inventory", error)
-    setErrorToast('No se pudo recargar el insumo. Intenta nuevamente.')
-    setTimeout(() => setErrorToast(null), 4000)
+    alert("Error al intentar recargar insumo.")
   } finally {
     setRefillLoadingId(null)
   }
@@ -290,13 +286,6 @@ return (
         <div className="bg-emerald-950 border border-emerald-500/50 text-emerald-200 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
           <span className="text-sm font-medium">{refillToast}</span>
-        </div>
-      )}
-
-      {errorToast && (
-        <div className="bg-rose-950 border border-rose-500/50 text-rose-200 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
-          <AlertCircle className="w-5 h-5 text-rose-400" />
-          <span className="text-sm font-medium">{errorToast}</span>
         </div>
       )}
     </div>
@@ -570,7 +559,7 @@ return (
 
             <div className="mt-4 pt-3 border-t border-[color:var(--store-border)]">
               <Link
-                href={adminHref('/admin/inventario')}
+                href="/admin/inventario"
                 className="text-xs font-semibold flex items-center justify-between text-[color:var(--store-text-muted)] hover:text-white transition-colors"
               >
                 <span>Ver inventario completo y movimientos</span>
@@ -737,7 +726,7 @@ return (
 
             <div className="mt-4 pt-3 border-t border-[color:var(--store-border)]">
               <Link
-                href={adminHref('/admin/productos')}
+                href="/admin/productos"
                 className="text-xs font-semibold flex items-center justify-between text-[color:var(--store-text-muted)] hover:text-white transition-colors"
               >
                 <span>Gestionar catálogo y recetas</span>
@@ -851,10 +840,6 @@ return (
                             <span className="inline-flex items-center gap-1 text-amber-400">
                               <Truck className="w-3 h-3" /> Delivery
                             </span>
-                          ) : order.delivery_type === 'dine_in' ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-400">
-                              <UtensilsCrossed className="w-3 h-3" /> Salón
-                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-purple-400">
                               <Store className="w-3 h-3" /> Retiro
@@ -927,12 +912,12 @@ return (
         onClick={() => setSelectedOrder(null)}
       >
         <div
-          className="print-active bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl text-left"
+          className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl text-left"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex justify-between items-start mb-4 pb-3 border-b border-[color:var(--store-border)]">
             <div>
-              <span className="text-[10px] text-[color:var(--store-text-muted)] uppercase tracking-wider font-semibold">Comanda • {restaurant?.name || 'ComandApp'}</span>
+              <span className="text-[10px] text-[color:var(--store-text-muted)] uppercase tracking-wider font-semibold">Comanda</span>
               <h3 className="font-rustic font-bold text-2xl text-white">
                 #{selectedOrder.id.slice(0, 8).toUpperCase()}
               </h3>
@@ -942,7 +927,7 @@ return (
             </div>
             <button
               onClick={() => setSelectedOrder(null)}
-              className="no-print p-1.5 rounded-xl hover:bg-white/10 text-[color:var(--store-text-muted)] hover:text-white"
+              className="p-1.5 rounded-xl hover:bg-white/10 text-[color:var(--store-text-muted)] hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -952,9 +937,9 @@ return (
           <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] mb-5 text-xs space-y-1.5">
             <p><strong className="text-white">Cliente:</strong> {selectedOrder.guest_name || 'Mostrador'}</p>
             {selectedOrder.guest_phone && <p><strong className="text-white">Teléfono:</strong> {selectedOrder.guest_phone}</p>}
-            <p><strong className="text-white">Modalidad:</strong> {selectedOrder.delivery_type === 'delivery' ? 'Envío a Domicilio' : selectedOrder.delivery_type === 'dine_in' ? 'Salón / Mesa' : 'Retiro en Local'}</p>
+            <p><strong className="text-white">Modalidad:</strong> {selectedOrder.delivery_type === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}</p>
             {selectedOrder.guest_address && <p><strong className="text-white">Dirección de Entrega:</strong> {selectedOrder.guest_address}</p>}
-            <p><strong className="text-white">Medio de Pago:</strong> {selectedOrder.payment_method === 'cash' ? 'Efectivo' : selectedOrder.payment_method === 'transfer' ? 'Transferencia / MP' : 'Tarjeta / Digital'}</p>
+            <p><strong className="text-white">Medio de Pago:</strong> {selectedOrder.payment_method === 'cash' ? 'Efectivo' : 'Tarjeta / Digital'}</p>
             {selectedOrder.notes && (
               <p className="pt-2 text-amber-300 italic border-t border-white/10">
                 <strong>Aclaración para cocina:</strong> &ldquo;{selectedOrder.notes}&rdquo;
@@ -987,21 +972,12 @@ return (
             </span>
           </div>
 
-          <div className="no-print flex flex-col sm:flex-row gap-2.5">
-            <button
-              onClick={() => window.print()}
-              className="flex-1 btn-secondary py-2.5 text-xs font-bold flex items-center justify-center gap-1.5"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Imprimir Comanda</span>
-            </button>
-            <button
-              onClick={() => setSelectedOrder(null)}
-              className="flex-1 btn-primary py-2.5 text-xs font-bold"
-            >
-              Cerrar Detalle
-            </button>
-          </div>
+          <button
+            onClick={() => setSelectedOrder(null)}
+            className="w-full btn-primary py-2.5 text-xs font-bold"
+          >
+            Cerrar Detalle
+          </button>
         </div>
       </div>
     )}
@@ -1013,14 +989,14 @@ return (
         onClick={() => setIsZReportOpen(false)}
       >
         <div
-          className="print-active bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl text-left"
+          className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl text-left"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex justify-between items-start mb-4 pb-3 border-b border-[color:var(--store-border)]">
             <div>
               <span className="badge-rustic text-[10px]">Control de Caja & Auditoría</span>
               <h3 className="font-rustic font-bold text-2xl text-white mt-1">
-                {period === 'today' ? 'Arqueo & Balance de Jornada' : period === 'week' ? 'Balance Consolidado Semanal' : period === 'month' ? 'Balance Consolidado Mensual' : 'Balance Consolidado Histórico'}
+                Arqueo & Balance de Jornada
               </h3>
               <p className="text-xs text-[color:var(--store-text-muted)] mt-0.5">
                 {restaurant?.name || 'ComandApp'} • {todayFormatted}
@@ -1028,7 +1004,7 @@ return (
             </div>
             <button
               onClick={() => setIsZReportOpen(false)}
-              className="no-print p-1.5 rounded-xl hover:bg-white/10 text-[color:var(--store-text-muted)] hover:text-white"
+              className="p-1.5 rounded-xl hover:bg-white/10 text-[color:var(--store-text-muted)] hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1037,9 +1013,7 @@ return (
           <div className="space-y-4 my-6 text-xs">
             <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-2xl border border-[color:var(--store-border)] space-y-2.5">
               <div className="flex justify-between items-center text-sm font-bold text-white border-b border-white/10 pb-2">
-                <span>
-                  {period === 'today' ? 'Facturación Total de la Jornada:' : period === 'week' ? 'Facturación Últimos 7 Días:' : period === 'month' ? 'Facturación Últimos 30 Días:' : 'Facturación Histórica Total:'}
-                </span>
+                <span>Facturación Total de la Jornada:</span>
                 <span className="font-rustic text-lg" style={{ color: primaryColor }}>
                   ${totalSales.toLocaleString()}
                 </span>
@@ -1079,7 +1053,7 @@ return (
             </div>
           </div>
 
-          <div className="no-print flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               onClick={handlePrintZReport}
               className="flex-1 btn-primary py-3 text-xs font-bold flex items-center justify-center gap-2"

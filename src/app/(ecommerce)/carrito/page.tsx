@@ -1,37 +1,12 @@
 'use client'
 
 import { useCartStore } from '@/store/useCartStore'
-import {
-  Minus,
-  Plus,
-  Trash2,
-  ArrowRight,
-  Utensils,
-  ChefHat,
-  CheckCircle2,
-  Copy,
-  Check,
-  AlertCircle
-} from 'lucide-react'
+import { Minus, Plus, Trash2, ArrowRight, Utensils, Sparkles, ChefHat, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createOrder, getStoreOpenStatus } from '@/lib/api'
 import { useStoreTenant } from '@/lib/useStoreTenant'
-
-/**
- * Extrae el valor numérico de un costo de envío (ej: "$1.500" -> 1500, "Gratis" -> 0).
- */
-function parseNumericShippingCost(raw?: string | null): number {
-  if (!raw) return 0
-  const text = raw.trim().toLowerCase()
-  if (!text || text.includes('gratis') || text.includes('sin cargo') || text.includes('coordinar') || text.includes('convenir')) {
-    return 0
-  }
-  const digitsOnly = text.replace(/[^0-9]/g, '')
-  if (!digitsOnly) return 0
-  const parsed = Number(digitsOnly)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
-}
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, total, clearCart } = useCartStore()
@@ -40,8 +15,7 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderDone, setOrderDone] = useState<any>(null)
-  const [copiedCode, setCopiedCode] = useState(false)
-  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const router = useRouter()
 
   const [formData, setFormData] = useState({
     name: '',
@@ -54,33 +28,9 @@ export default function CartPage() {
 
   useEffect(() => setMounted(true), [])
 
-  // Auto-seleccionar el primer medio de pago habilitado por el comercio
-  useEffect(() => {
-    if (!restaurant) return
-    const enabledMethods: string[] = []
-    if (restaurant.accepts_cash !== false) enabledMethods.push('cash')
-    if (restaurant.accepts_transfer !== false) enabledMethods.push('mercadopago')
-    if (restaurant.accepts_card !== false) enabledMethods.push('card')
-
-    if (enabledMethods.length > 0 && !enabledMethods.includes(formData.paymentMethod)) {
-      setFormData((prev) => ({ ...prev, paymentMethod: enabledMethods[0] }))
-    }
-  }, [restaurant, formData.paymentMethod])
-
   if (!mounted) return null
 
   if (orderDone) {
-    const shortCode = String(orderDone.id || '').split('-')[0].toUpperCase()
-    const handleCopyCode = async () => {
-      try {
-        await navigator.clipboard.writeText(shortCode)
-        setCopiedCode(true)
-        setTimeout(() => setCopiedCode(false), 2000)
-      } catch {
-        // Fallback silencioso
-      }
-    }
-
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center animate-in fade-in duration-500">
         <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] p-8 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden">
@@ -88,452 +38,389 @@ export default function CartPage() {
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
-          <div className="inline-flex items-center gap-2 mb-4">
-            <span className="badge-rustic">¡Orden #{shortCode} enviada a cocina!</span>
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white border border-white/15 transition-all active:scale-95"
-              title="Copiar código de seguimiento"
-            >
-              {copiedCode ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-300">¡Copiado!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" style={{ color: primaryColor }} />
-                  <span>Copiar código</span>
-                </>
-              )}
-            </button>
-          </div>
-
+          <span className="badge-rustic mb-3">¡Orden #{orderDone.id.split('-')[0].toUpperCase()} enviada a cocina!</span>
           <h2 className="text-3xl md:text-4xl font-rustic font-bold text-white mb-3">
             ¡Comanda Recibida en Cocina!
           </h2>
           <p className="text-[color:var(--store-text-soft)] mb-6 leading-relaxed">
-            Nuestros cocineros ya tienen tu pedido en pantalla. Guardá tu código <strong>#{shortCode}</strong> para consultar el avance en cualquier momento.
+            Nuestros cocineros ya tienen tu pedido en la comanda. En unos minutos estará marchando al fuego.
           </p>
 
-            <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-xl border border-[color:var(--store-border)] mb-8 text-left text-sm text-[color:var(--store-text-soft)] space-y-1">
-              <p><strong className="text-white">Cliente:</strong> {formData.name}</p>
-              <p><strong className="text-white">Modalidad:</strong> {formData.deliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}</p>
-              {formData.deliveryType === 'delivery' && <p><strong className="text-white">Dirección:</strong> {formData.address}</p>}
-              <p><strong className="text-white">Total a abonar:</strong> ${Number(orderDone.total_amount || 0).toLocaleString('es-AR')}</p>
-            </div>
+          <div className="bg-[color:var(--store-subtle-bg)] p-4 rounded-xl border border-[color:var(--store-border)] mb-8 text-left text-sm text-[color:var(--store-text-soft)]">
+            <p><strong className="text-white">Cliente:</strong> {formData.name}</p>
+            <p><strong className="text-white">Modalidad:</strong> {formData.deliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}</p>
+            {formData.deliveryType === 'delivery' && <p><strong className="text-white">Dirección:</strong> {formData.address}</p>}
+            <p><strong className="text-white">Total a abonar:</strong> ${Number(orderDone.total_amount || 0).toLocaleString()}</p>
+          </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+<Link 
               href={href(`/seguimiento?id=${orderDone.id}`)}
-                className="btn-amber text-center py-3 px-6 font-bold"
-              >
-                Seguir mi pedido en vivo
-              </Link>
-              <Link
-                href={storePath}
-                className="btn-secondary text-center py-3 px-6"
-              >
-                Volver a la carta
-              </Link>
-            </div>
+              className="btn-amber text-center py-3 px-6"
+            >
+              Rastrear mi pedido
+            </Link>
+            <Link
+              href={storePath}
+              className="btn-secondary text-center py-3 px-6"
+            >
+              Volver a la carta
+            </Link>
           </div>
         </div>
-        )
+      </div>
+    )
   }
 
-        if (items.length === 0) {
+  if (items.length === 0) {
     return (
-        <div className="max-w-2xl mx-auto px-4 py-24 text-center">
-          <div className="w-20 h-20 rounded-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] flex items-center justify-center mx-auto mb-6">
-            <Utensils className="w-8 h-8" style={{ color: primaryColor }} />
-          </div>
-          <h2 className="text-3xl font-rustic font-bold text-white mb-3">Tu comanda está vacía</h2>
-          <p className="text-[color:var(--store-text-muted)] mb-8 max-w-md mx-auto">
-            Aún no has agregado ninguna de nuestras comidas caseras. Date una vuelta por el menú para ver qué sale del horno hoy.
-          </p>
-          <Link href={storePath} className="btn-primary inline-flex items-center gap-2">
-            <span>Ver la Carta & Menú</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+      <div className="max-w-2xl mx-auto px-4 py-24 text-center">
+        <div className="w-20 h-20 rounded-full bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] flex items-center justify-center mx-auto mb-6">
+          <Utensils className="w-8 h-8" style={{ color: primaryColor }} />
         </div>
-        )
+        <h2 className="text-3xl font-rustic font-bold text-white mb-3">Tu comanda está vacía</h2>
+        <p className="text-[color:var(--store-text-muted)] mb-8 max-w-md mx-auto">
+          Aún no has agregado ninguna de nuestras comidas caseras. Date una vuelta por el menú para ver qué sale del horno hoy.
+        </p>
+        <Link href={storePath} className="btn-primary inline-flex items-center gap-2">
+          <span>Ver la Carta & Menú</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+    )
   }
 
-        const subtotal = total()
-        const cashDiscountPct =
-        formData.paymentMethod === 'cash' && restaurant?.accepts_cash !== false
-        ? Number(restaurant?.cash_discount_percentage || 0)
-        : 0
+  const subtotal = total()
+  const cashDiscountPct = formData.paymentMethod === 'cash' ? Number(restaurant?.cash_discount_percentage || 0) : 0
   const discountAmount = cashDiscountPct > 0 ? Math.round((subtotal * cashDiscountPct) / 100) : 0
-        const shippingCost = formData.deliveryType === 'delivery' ? parseNumericShippingCost(restaurant?.delivery_cost) : 0
-        const finalTotal = Math.max(0, subtotal - discountAmount + shippingCost)
-        const storeStatus = getStoreOpenStatus(restaurant)
+  const finalTotal = Math.max(0, subtotal - discountAmount)
+  const storeStatus = getStoreOpenStatus(restaurant)
 
   const handleCheckout = async (e: React.FormEvent) => {
-          e.preventDefault()
-    setCheckoutError(null)
-
-        if (tenant && !restaurant) {
-      setCheckoutError('No pudimos identificar el local de esta tienda. Recargá la página e intentá nuevamente.')
-        return
+    e.preventDefault()
+    if (tenant && !restaurant) {
+      alert("No pudimos identificar el local de esta tienda. Recargá la página e intentá nuevamente.")
+      return
     }
 
-        const currentStatus = getStoreOpenStatus(restaurant)
-        if (!currentStatus.isOpen) {
-      setCheckoutError(currentStatus.message)
-        return
+    const currentStatus = getStoreOpenStatus(restaurant)
+    if (!currentStatus.isOpen) {
+      alert(currentStatus.message)
+      return
     }
 
-        if (restaurant && restaurant.min_order_amount && subtotal < Number(restaurant.min_order_amount)) {
-      setCheckoutError(
-        `El pedido mínimo para este local es de $${Number(restaurant.min_order_amount).toLocaleString('es-AR')} (actual: $${subtotal.toLocaleString('es-AR')}).`
-        )
-        return
+    if (restaurant && restaurant.min_order_amount && subtotal < Number(restaurant.min_order_amount)) {
+      alert(`El pedido mínimo para este local es de $${Number(restaurant.min_order_amount).toLocaleString()}.`)
+      return
     }
 
-        setIsSubmitting(true)
+    setIsSubmitting(true)
 
-        try {
-        const newOrder = await createOrder(
-        {
-          delivery_type: formData.deliveryType,
+    try {
+      const newOrder = await createOrder({
+        delivery_type: formData.deliveryType,
         total_amount: finalTotal,
-        guest_name: formData.name.trim(),
-        guest_phone: formData.phone.trim(),
-        guest_address: formData.deliveryType === 'delivery' ? formData.address.trim() : '',
+        guest_name: formData.name,
+        guest_phone: formData.phone,
+        guest_address: formData.address,
         payment_method: formData.paymentMethod,
-        notes: formData.notes.trim()
-        },
-        items.map((item) => ({
-          product_id: item.id,
+        notes: formData.notes
+      }, items.map(item => ({
+        product_id: item.id,
         quantity: item.quantity,
         unit_price: item.price,
         product_name: item.name
-        })),
-        restaurant?.id
-        )
+      })), restaurant?.id)
 
-        clearCart()
-        setOrderDone(newOrder)
+      clearCart()
+      setOrderDone(newOrder)
     } catch (error) {
-        console.error('Error al crear el pedido', error)
-        setCheckoutError('Hubo un problema al enviar tu comanda. Por favor intentá nuevamente.')
+      console.error("Error al crear el pedido", error)
+      alert("Hubo un error al procesar el pedido. Por favor intenta nuevamente.")
     } finally {
-          setIsSubmitting(false)
-        }
+      setIsSubmitting(false)
+    }
   }
 
-        return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex items-center gap-3 mb-8">
-            <ChefHat className="w-8 h-8" style={{ color: primaryColor }} />
-            <div>
-              <h1 className="text-3xl font-rustic font-bold text-white">Tu Comanda</h1>
-              <p className="text-xs text-[color:var(--store-text-muted)]">Revisa tus platos y confirma tus datos de entrega</p>
-            </div>
-          </div>
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="flex items-center gap-3 mb-8">
+        <ChefHat className="w-8 h-8" style={{ color: primaryColor }} />
+        <div>
+          <h1 className="text-3xl font-rustic font-bold text-white">Tu Comanda</h1>
+          <p className="text-xs text-[color:var(--store-text-muted)]">Revisa tus platos y confirma tus datos de entrega</p>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            {/* Items List */}
-            <div className="lg:col-span-2 space-y-4">
-                {
-                  items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border"
-                      style={{
-                        backgroundColor: 'var(--store-card-bg, #1f1712)',
-                        borderColor: `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, #3d2f25))`
-                      }}
-                    >
-                      <div className="flex-1">
-                        <h3 className="font-rustic font-bold text-lg text-white mb-1">{item.name}</h3>
-                        <p className="font-medium text-sm" style={{ color: primaryColor }}>
-                          ${Number(item.price).toLocaleString('es-AR')} c/u
-                        </p>
-                      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
-                      <div className="flex items-center space-x-4 self-end sm:self-center">
-                        <div
-                          className="flex items-center space-x-2 rounded-xl p-1 border"
-                          style={{
-                            backgroundColor: 'var(--store-subtle-bg, #2b2019)',
-                            borderColor: 'var(--store-border, #44352a)'
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                            className="p-1.5 hover:text-white rounded-lg transition-colors"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="w-8 text-center font-bold text-sm text-white">{item.quantity}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="p-1.5 hover:text-white rounded-lg transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                          <div className="text-right min-w-[75px]">
-                            <p className="font-rustic font-bold text-white">
-                              ${(item.price * item.quantity).toLocaleString('es-AR')}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeItem(item.id)}
-                            className="p-2 transition-colors rounded-lg hover:bg-red-500/10 text-white/50 hover:text-red-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-          ))}
-
-                      <div className="pt-4 flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
-                        <span>¿Quieres sumar algo más del horno?</span>
-                        <Link href={storePath} className="hover:underline font-semibold flex items-center gap-1" style={{ color: primaryColor }}>
-                          <span>+ Agregar más platos</span>
-                        </Link>
-                      </div>
-                    </div>
-
-        {/* Checkout Form */ }
-                    < div className = "lg:col-span-1" >
-                    <form
-                      onSubmit={handleCheckout}
-                      className="p-6 rounded-3xl sticky top-28 shadow-xl border"
-                      style={{
-                        backgroundColor: 'var(--store-card-bg, #1f1712)',
-                        borderColor: `color-mix(in srgb, ${primaryColor} 22%, var(--store-border, #4d3a2b))`
-                      }}
-                    >
-                      <div
-                        className="flex items-center justify-between mb-6 pb-4 border-b"
-                        style={{ borderColor: 'var(--store-border, #3d2f25)' }}
-                      >
-                        <h2 className="text-xl font-rustic font-bold text-white">Datos de Entrega</h2>
-                        <span
-                          className="text-[11px] px-2.5 py-0.5 rounded-full border font-semibold"
-                          style={{
-                            color: primaryColor,
-                            backgroundColor: `${primaryColor}20`,
-                            borderColor: `${primaryColor}40`
-                          }}
-                        >
-                          Sin Registro
-                        </span>
-                      </div>
-
-                      {checkoutError && (
-                        <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                          <span>{checkoutError}</span>
-                        </div>
-                      )}
-
-                      <div className="space-y-4 mb-6">
-                        <div>
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>
-                            Tu Nombre y Apellido
-                          </label>
-                          <input
-                            required
-                            type="text"
-                            className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
-                            style={{
-                              backgroundColor: 'var(--store-subtle-bg, #17120e)',
-                              borderColor: 'var(--store-border, #44352a)'
-                            }}
-                            placeholder="Ej: Marcelo Fernández"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>
-                            Teléfono (WhatsApp)
-                          </label>
-                          <input
-                            required
-                            type="tel"
-                            className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
-                            style={{
-                              backgroundColor: 'var(--store-subtle-bg, #17120e)',
-                              borderColor: 'var(--store-border, #44352a)'
-                            }}
-                            placeholder="Ej: 11 4455-6677"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>
-                            ¿Cómo lo prefieres?
-                          </label>
-                          <select
-                            className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
-                            style={{
-                              backgroundColor: 'var(--store-subtle-bg, #17120e)',
-                              borderColor: 'var(--store-border, #44352a)'
-                            }}
-                            value={formData.deliveryType}
-                            onChange={(e) => setFormData({ ...formData, deliveryType: e.target.value })}
-                          >
-                            <option value="delivery">🛵 Envío a Domicilio (Delivery)</option>
-                            <option value="local_pickup">🏪 Retiro por el Local (Take Away)</option>
-                          </select>
-                        </div>
-
-                        {formData.deliveryType === 'delivery' && (
-                          <div className="animate-in fade-in duration-300">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>
-                              Dirección de Entrega
-                            </label>
-                            <input
-                              required
-                              type="text"
-                              className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
-                              style={{
-                                backgroundColor: 'var(--store-subtle-bg, #17120e)',
-                                borderColor: 'var(--store-border, #44352a)'
-                              }}
-                              placeholder="Calle, número y depto/piso"
-                              value={formData.address}
-                              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            />
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>
-                            Forma de Pago
-                          </label>
-                          <select
-                            className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
-                            style={{
-                              backgroundColor: 'var(--store-subtle-bg, #17120e)',
-                              borderColor: 'var(--store-border, #44352a)'
-                            }}
-                            value={formData.paymentMethod}
-                            onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                          >
-                            {restaurant?.accepts_cash !== false && (
-                              <option value="cash">
-                                💵 Efectivo al recibir {Number(restaurant?.cash_discount_percentage) > 0 ? `(${restaurant?.cash_discount_percentage}% OFF)` : ''}
-                              </option>
-                            )}
-                            {restaurant?.accepts_transfer !== false && (
-                              <option value="mercadopago">📱 MercadoPago / Transferencia</option>
-                            )}
-                            {restaurant?.accepts_card !== false && (
-                              <option value="card">💳 Tarjeta Débito/Crédito</option>
-                            )}
-                          </select>
-
-                          {formData.paymentMethod === 'mercadopago' && restaurant?.transfer_alias && (
-                            <p className="text-[11px] text-blue-300 mt-1.5 bg-blue-950/40 p-2 rounded-lg border border-blue-500/30">
-                              💳 <strong>Alias de Transferencia:</strong> <code className="font-mono text-white select-all">{restaurant.transfer_alias}</code>
-                            </p>
-                          )}
-
-                            {
-                              formData.paymentMethod === 'cash' && restaurant?.accepts_cash !== false && Number(restaurant?.cash_discount_percentage) > 0 && (
-                                <p className="text-[11px] text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/30">
-                                  ⚡ <strong>Promoción:</strong> ¡Obtienes un {restaurant?.cash_discount_percentage}% de descuento (-${discountAmount.toLocaleString('es-AR')}) abonando en efectivo!
-                                </p>
-                              )
-                            }
+        {/* Items List */}
+        <div className="lg:col-span-2 space-y-4">
+          {items.map(item => (
+            <div
+              key={item.id}
+              className="p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border"
+              style={{
+                backgroundColor: 'var(--store-card-bg, #1f1712)',
+                borderColor: `color-mix(in srgb, ${primaryColor} 18%, var(--store-border, #3d2f25))`
+              }}
+            >
+              <div className="flex-1">
+                <h3 className="font-rustic font-bold text-lg text-white mb-1">{item.name}</h3>
+                <p className="font-medium text-sm" style={{ color: primaryColor }}>${Number(item.price).toLocaleString()} c/u</p>
               </div>
 
-                        <div>
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>
-                            Aclaración para la cocina (Opcional)
-                          </label>
-                          <input
-                            type="text"
-                            className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
-                            style={{
-                              backgroundColor: 'var(--store-subtle-bg, #17120e)',
-                              borderColor: 'var(--store-border, #44352a)'
-                            }}
-                            placeholder="Ej: Sin cebolla, tocar timbre 2B"
-                            value={formData.notes}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                          />
-                        </div>
-                      </div>
+              <div className="flex items-center space-x-4 self-end sm:self-center">
+                <div
+                  className="flex items-center space-x-2 rounded-xl p-1 border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #2b2019)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                    className="p-1.5 hover:text-white rounded-lg transition-colors"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-8 text-center font-bold text-sm text-white">{item.quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    className="p-1.5 hover:text-white rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
 
-                      {/* Total breakdown */}
-                      <div
-                        className="border-t pt-4 mb-6 space-y-2"
-                        style={{ borderColor: 'var(--store-border, #3d2f25)' }}
-                      >
-                        <div className="flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
-                          <span>Subtotal comida</span>
-                          <span className="font-semibold text-white">${subtotal.toLocaleString('es-AR')}</span>
-                        </div>
-                        {discountAmount > 0 && (
-                          <div className="flex justify-between items-center text-xs text-emerald-400 font-semibold">
-                            <span>Descuento en efectivo ({cashDiscountPct}%)</span>
-                            <span>-${discountAmount.toLocaleString('es-AR')}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center text-xs" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>
-                          <span>Costo de envío</span>
-                          <span>
-                            {formData.deliveryType === 'delivery'
-                              ? shippingCost > 0
-                                ? `$${shippingCost.toLocaleString('es-AR')}`
-                                : restaurant?.delivery_cost || 'A coordinar'
-                              : '¡Gratis! (Retiro)'}
-                          </span>
-                        </div>
-                        <div
-                          className="flex justify-between items-center text-xl font-bold font-rustic pt-2 border-t"
-                          style={{ borderColor: 'var(--store-border, #31251e)' }}
-                        >
-                          <span className="text-white">Total</span>
-                          <span style={{ color: primaryColor }}>${finalTotal.toLocaleString('es-AR')}</span>
-                        </div>
-                      </div>
+                <div className="text-right min-w-[70px]">
+                  <p className="font-rustic font-bold text-white">${(item.price * item.quantity).toLocaleString()}</p>
+                </div>
 
-                      {!storeStatus.isOpen && (
-                        <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs text-center font-medium">
-                          🔴 {storeStatus.message}
-                        </div>
-                      )}
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  className="p-2 transition-colors rounded-lg hover:bg-red-500/10 text-white/50 hover:text-red-400"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
 
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || !storeStatus.isOpen}
-                        className="btn-primary w-full flex items-center justify-center space-x-2 py-3.5 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span>
-                          {!storeStatus.isOpen
-                            ? 'Local Cerrado por Horario'
-                            : isSubmitting
-                              ? 'Enviando a cocina...'
-                              : 'Confirmar Pedido'}
-                        </span>
-                        <ArrowRight className="w-5 h-5" />
-                      </button>
-
-                      <p className="text-[11px] text-center text-[color:var(--store-text-faint)] mt-3">
-                        🔒 Tu orden viaja directo a la pantalla de cocina sin comisiones
-                      </p>
-                    </form>
-        </div>
+          <div className="pt-4 flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
+            <span>¿Quieres sumar algo más del horno?</span>
+            <Link href={storePath} className="hover:underline font-semibold flex items-center gap-1" style={{ color: primaryColor }}>
+              <span>+ Agregar más platos</span>
+            </Link>
           </div>
         </div>
-        )
+
+        {/* Checkout Form */}
+        <div className="lg:col-span-1">
+          <form
+            onSubmit={handleCheckout}
+            className="p-6 rounded-3xl sticky top-28 shadow-xl border"
+            style={{
+              backgroundColor: 'var(--store-card-bg, #1f1712)',
+              borderColor: `color-mix(in srgb, ${primaryColor} 22%, var(--store-border, #4d3a2b))`
+            }}
+          >
+            <div
+              className="flex items-center justify-between mb-6 pb-4 border-b"
+              style={{ borderColor: 'var(--store-border, #3d2f25)' }}
+            >
+              <h2 className="text-xl font-rustic font-bold text-white">Datos de Entrega</h2>
+              <span
+                className="text-[11px] px-2.5 py-0.5 rounded-full border font-semibold"
+                style={{
+                  color: primaryColor,
+                  backgroundColor: `${primaryColor}20`,
+                  borderColor: `${primaryColor}40`
+                }}
+              >
+                Sin Registro
+              </span>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Tu Nombre y Apellido</label>
+                <input
+                  required
+                  type="text"
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                  placeholder="Ej: Marcelo Fernández"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Teléfono (WhatsApp)</label>
+                <input
+                  required
+                  type="tel"
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                  placeholder="Ej: 11 4455-6677"
+                  value={formData.phone}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>¿Cómo lo prefieres?</label>
+                <select
+                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                  value={formData.deliveryType}
+                  onChange={e => setFormData({ ...formData, deliveryType: e.target.value })}
+                >
+                  <option value="delivery">🛵 Envío a Domicilio (Delivery)</option>
+                  <option value="local_pickup">🏪 Retiro por el Local (Take Away)</option>
+                </select>
+              </div>
+
+              {formData.deliveryType === 'delivery' && (
+                <div className="animate-in fade-in duration-300">
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Dirección de Entrega</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
+                    style={{
+                      backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                      borderColor: 'var(--store-border, #44352a)'
+                    }}
+                    placeholder="Calle, número y depto/piso"
+                    value={formData.address}
+                    onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Forma de Pago</label>
+                <select
+                  className="w-full rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                  value={formData.paymentMethod}
+                  onChange={e => setFormData({ ...formData, paymentMethod: e.target.value })}
+                >
+                  {restaurant?.accepts_cash !== false && (
+                    <option value="cash">
+                      💵 Efectivo al recibir {Number(restaurant?.cash_discount_percentage) > 0 ? `(${restaurant?.cash_discount_percentage}% OFF)` : ''}
+                    </option>
+                  )}
+                  {restaurant?.accepts_transfer !== false && (
+                    <option value="mercadopago">📱 MercadoPago / Transferencia</option>
+                  )}
+                  {restaurant?.accepts_card !== false && (
+                    <option value="card">💳 Tarjeta Débito/Crédito</option>
+                  )}
+                </select>
+
+                {formData.paymentMethod === 'mercadopago' && restaurant?.transfer_alias && (
+                  <p className="text-[11px] text-blue-300 mt-1.5 bg-blue-950/40 p-2 rounded-lg border border-blue-500/30">
+                    💳 <strong>Alias de Transferencia:</strong> <code className="font-mono text-white select-all">{restaurant.transfer_alias}</code>
+                  </p>
+                )}
+
+                {formData.paymentMethod === 'cash' && Number(restaurant?.cash_discount_percentage) > 0 && (
+                  <p className="text-[11px] text-emerald-300 mt-1.5 bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/30">
+                    ⚡ <strong>Promoción:</strong> ¡Obtienes un {restaurant?.cash_discount_percentage}% de descuento (-${discountAmount.toLocaleString()}) abonando en efectivo!
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--store-text-muted, #c7af9a)' }}>Aclaración para la cocina (Opcional)</label>
+                <input
+                  type="text"
+                  className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/40 focus:outline-none focus:border-[var(--brand-primary,#e59324)] transition-colors text-sm border"
+                  style={{
+                    backgroundColor: 'var(--store-subtle-bg, #17120e)',
+                    borderColor: 'var(--store-border, #44352a)'
+                  }}
+                  placeholder="Ej: Sin cebolla, tocar timbre 2B"
+                  value={formData.notes}
+                  onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Total breakdown */}
+            <div
+              className="border-t pt-4 mb-6 space-y-2"
+              style={{ borderColor: 'var(--store-border, #3d2f25)' }}
+            >
+              <div className="flex justify-between items-center text-sm" style={{ color: 'var(--store-text-muted, #bda086)' }}>
+                <span>Subtotal comida</span>
+                <span className="font-semibold text-white">${subtotal.toLocaleString()}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center text-xs text-emerald-400 font-semibold">
+                  <span>Descuento en efectivo ({cashDiscountPct}%)</span>
+                  <span>-${discountAmount.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-xs" style={{ color: 'var(--store-text-muted, #8c6f59)' }}>
+                <span>Costo de envío</span>
+                <span>{formData.deliveryType === 'delivery' ? (restaurant?.delivery_cost || 'A coordinar') : '¡Gratis! (Retiro)'}</span>
+              </div>
+              <div
+                className="flex justify-between items-center text-xl font-bold font-rustic pt-2 border-t"
+                style={{ borderColor: 'var(--store-border, #31251e)' }}
+              >
+                <span className="text-white">Total</span>
+                <span style={{ color: primaryColor }}>${finalTotal.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {!storeStatus.isOpen && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs text-center font-medium">
+                🔴 {storeStatus.message}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !storeStatus.isOpen}
+              className="btn-primary w-full flex items-center justify-center space-x-2 py-3.5 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>
+                {!storeStatus.isOpen
+                  ? 'Local Cerrado por Horario'
+                  : isSubmitting
+                    ? 'Enviando a cocina...'
+                    : 'Confirmar Pedido'}
+              </span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+
+            <p className="text-[11px] text-center text-[color:var(--store-text-faint)] mt-3">
+              🔒 Tu orden viaja directo a la pantalla de cocina sin comisiones
+            </p>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  )
 }

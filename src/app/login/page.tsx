@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Flame, Loader2, Lock, Mail, ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { Flame, Loader2, Lock, Mail, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getRestaurant, getRestaurantStrict, type RestaurantInfo } from '@/lib/api'
 import { buildTenantUrl, getClientTenant, isOnTenantHost, matchRootDomain } from '@/lib/tenant'
@@ -11,7 +11,6 @@ import { buildTenantUrl, getClientTenant, isOnTenantHost, matchRootDomain } from
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [tenantInfo, setTenantInfo] = useState<RestaurantInfo | null>(null)
@@ -28,6 +27,7 @@ export default function LoginPage() {
     if (slug) getRestaurantStrict(slug).then(setTenantInfo)
 
     // Recibir la sesión si venimos de iniciar sesión en el dominio general.
+    // (La sesión vive en localStorage, que es distinto en cada subdominio.)
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     const at = hash.get('sat')
     const rt = hash.get('srt')
@@ -56,10 +56,10 @@ export default function LoginPage() {
         localStorage.removeItem('demo_auth')
         window.sessionStorage.removeItem('comandapp_demo_mode')
         window.sessionStorage.removeItem('comandapp_active_tenant')
-      } catch { }
+      } catch {}
 
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email,
         password,
       })
 
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
       try {
         window.sessionStorage.setItem('comandapp_active_tenant', targetSubdomain)
-      } catch { }
+      } catch {}
 
       // Si ya está en el subdominio o parámetro correcto de su restaurante
       if (hostTenant && hostTenant === targetSubdomain) {
@@ -107,14 +107,10 @@ export default function LoginPage() {
 
       // En hosts compartidos (ej: vercel.app), conservar el ?negocio=<subdominio> propio
       router.push(buildTenantUrl(targetSubdomain, defaultTarget))
-
+      
     } catch (err: any) {
       console.error(err)
-      setError(
-        err?.message === 'Invalid login credentials'
-          ? 'Correo o contraseña incorrectos. Verificá tus datos e intentá nuevamente.'
-          : err.message || 'Error al iniciar sesión. Verifica tus credenciales.'
-      )
+      setError(err.message || 'Error al iniciar sesión. Verifica tus credenciales.')
     } finally {
       setLoading(false)
     }
@@ -122,9 +118,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#151210] flex items-center justify-center p-4 selection:bg-[#d34e2c] selection:text-white relative">
-
+      
       {/* Return to Landing Link */}
-        <Link
+      <Link 
         href="/"
         className="absolute top-6 left-6 text-xs text-[#bfa38c] hover:text-[#e59324] flex items-center gap-1.5 transition-colors"
       >
@@ -133,7 +129,7 @@ export default function LoginPage() {
       </Link>
 
       <div className="w-full max-w-md">
-
+        
         {/* Logo */}
         <div className="flex flex-col items-center justify-center mb-8">
           <div className="bg-gradient-to-br from-[#d34e2c] to-[#992c10] p-3.5 rounded-2xl mb-3 shadow-xl shadow-orange-950/60 border border-amber-500/20">
@@ -150,7 +146,7 @@ export default function LoginPage() {
         {/* Form Card */}
         <div className="bg-[#1f1712] rounded-3xl p-8 border border-[#4d3a2b] shadow-2xl">
           <form onSubmit={handleLogin} className="space-y-5">
-
+            
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[#c7af9a] ml-1">Correo Electrónico</label>
               <div className="relative">
@@ -159,7 +155,6 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="email"
-                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[#17120e] border border-[#44352a] rounded-xl pl-10 pr-4 py-3 text-white text-sm placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-all"
@@ -178,22 +173,13 @@ export default function LoginPage() {
                   <Lock className="h-4 w-4 text-[#7d6553]" />
                 </div>
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl pl-10 pr-11 py-3 text-white text-sm placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-all"
+                  className="w-full bg-[#17120e] border border-[#44352a] rounded-xl pl-10 pr-4 py-3 text-white text-sm placeholder-[#6d5645] focus:outline-none focus:border-[#e59324] transition-all"
                   placeholder="••••••••"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#8c6f59] hover:text-[#e59324] transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
               </div>
             </div>
 
@@ -220,12 +206,12 @@ export default function LoginPage() {
               onClick={async () => {
                 try {
                   await supabase.auth.signOut()
-                } catch { }
+                } catch {}
                 try {
                   localStorage.removeItem('demo_auth')
                   window.sessionStorage.setItem('comandapp_demo_mode', 'true')
                   window.sessionStorage.setItem('comandapp_active_tenant', 'don-carlos')
-                } catch { }
+                } catch {}
                 if (isOnTenantHost()) {
                   window.location.href = buildTenantUrl('don-carlos', '/admin?demo=true')
                 } else {
@@ -236,22 +222,13 @@ export default function LoginPage() {
             >
               <span>Acceso Rápido / Modo Demostración</span>
             </button>
-
+            
           </form>
         </div>
-
-
+        
         {/* Support Link */}
         <p className="text-center text-xs text-[#8c6f59] mt-6">
-          ¿Problemas para acceder? Contacta a{' '}
-          <a
-            href="https://wa.me/5491144558899?text=Hola%20ComandApp,%20necesito%20ayuda%20para%20ingresar%20a%20mi%20panel"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#e59324] hover:underline font-semibold"
-          >
-            soporte técnico vía WhatsApp
-          </a>
+          ¿Problemas para acceder? Contacta a <a href="https://wa.me/5491144558899?text=Hola%20ComandApp,%20necesito%20ayuda%20para%20ingresar%20a%20mi%20panel" target="_blank" rel="noopener noreferrer" className="text-[#e59324] hover:underline font-semibold">soporte técnico vía WhatsApp</a>
         </p>
       </div>
     </div>

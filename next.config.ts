@@ -6,17 +6,6 @@ const nextConfig: NextConfig = {
   // subdominio (ej: trippburger.localhost:3000) cuenta como origen distinto,
   // sin esto la página carga sin JS y "no funciona".
   allowedDevOrigins: ['*.localhost', 'localhost'],
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
-  },
-  experimental: {
-    optimizePackageImports: ['lucide-react'],
-  },
   async rewrites() {
     return [
       {

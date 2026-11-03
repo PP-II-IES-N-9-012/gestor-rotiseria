@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { 
   Flame, 
   ChefHat, 
@@ -30,21 +29,13 @@ import {
 } from 'lucide-react'
 
 export default function LandingPage() {
-  const router = useRouter()
   const [testSubdomain, setTestSubdomain] = useState('don-carlos')
   const [activeTab, setActiveTab] = useState<'tienda' | 'cocina' | 'pos' | 'inventario'>('tienda')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const sanitizeSubdomain = (text: string) => {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9-]/g, '-')
-      .replace(/-+/g, '-')
+    return text.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')
   }
-
-  const cleanPreviewSlug = testSubdomain.replace(/^-+|-+$/g, '') || 'don-carlos'
 
   return (
     <div className="min-h-screen bg-[#151210] text-[#fcf9f5] flex flex-col selection:bg-[#d34e2c] selection:text-white">
@@ -487,24 +478,18 @@ export default function LandingPage() {
             Escribe el nombre de tu rotisería, casa de empanadas o bodegón y mira la URL personalizada que tendrás lista para imprimir en volantes, cajas y stickers.
           </p>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              router.push(`/tienda/${cleanPreviewSlug}`)
-            }}
-            className="bg-[#1f1712] border border-[#4d3a2b] p-6 md:p-10 rounded-3xl max-w-2xl mx-auto shadow-2xl"
-          >
+          <div className="bg-[#1f1712] border border-[#4d3a2b] p-6 md:p-10 rounded-3xl max-w-2xl mx-auto shadow-2xl">
             <label className="block text-xs font-semibold text-[#c7af9a] mb-2 text-left">
               Escribe el nombre o alias de tu local:
             </label>
             
-            <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
               <div className="relative flex-grow w-full">
                 <input 
                   type="text" 
                   value={testSubdomain}
                   onChange={(e) => setTestSubdomain(sanitizeSubdomain(e.target.value))}
-                  placeholder="ej: don-carlos, roticastelli o trippburger"
+                  placeholder="ej: don-carlos o la-nonna"
                   className="w-full bg-[#151210] border border-[#44352a] rounded-xl px-4 py-3.5 text-white font-mono text-base focus:outline-none focus:border-[#e59324] transition-colors"
                 />
               </div>
@@ -513,42 +498,24 @@ export default function LandingPage() {
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 mb-6 text-xs">
-              <span className="text-[#8c6f59] font-medium">Ejemplos reales:</span>
-              {(['don-carlos', 'roticastelli', 'trippburger'] as const).map((slug) => (
-                <button
-                  key={slug}
-                  type="button"
-                  onClick={() => setTestSubdomain(slug)}
-                  className={`px-2.5 py-1 rounded-lg font-mono border transition-all ${
-                    cleanPreviewSlug === slug
-                      ? 'bg-[#e59324]/20 border-[#e59324] text-[#e59324] font-semibold'
-                      : 'bg-[#151210] border-[#382b21] text-[#bfa38c] hover:text-white hover:border-[#5c4636]'
-                  }`}
-                >
-                  {slug}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-4 bg-[#151210] border border-[#382b21] rounded-2xl mb-6 text-left flex items-center justify-between gap-2">
-              <div className="min-w-0">
+            <div className="p-4 bg-[#151210] border border-[#382b21] rounded-2xl mb-6 text-left flex items-center justify-between">
+              <div>
                 <span className="text-[11px] text-[#8c6f59] uppercase tracking-wider block font-semibold">Tu Tienda Pública Será:</span>
                 <span className="font-mono text-sm md:text-base text-[#e59324] font-bold break-all">
-                  https://{cleanPreviewSlug}.comandapp.com
+                  https://{testSubdomain || 'tunegocio'}.comandapp.com
                 </span>
               </div>
-              <span className="badge-rustic text-[10px] shrink-0">SSL Seguro</span>
+              <span className="badge-rustic text-[10px]">SSL Seguro</span>
             </div>
 
-            <button 
-              type="submit"
+            <Link 
+              href={`/tienda/${testSubdomain || 'don-carlos'}`}
               className="btn-primary w-full py-4 text-base font-bold flex items-center justify-center gap-2"
             >
               <span>Ver Tienda de Prueba con este Subdominio</span>
               <ArrowRight className="w-5 h-5" />
-            </button>
-          </form>
+            </Link>
+          </div>
 
         </div>
       </section>

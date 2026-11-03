@@ -15,21 +15,6 @@ export const RESERVED_SUBDOMAINS = new Set([
   'staging'
 ])
 
-/**
- * Normaliza un slug de subdominio eliminando acentos, espacios, símbolos
- * y guiones sobrantes al inicio o al final.
- */
-export function normalizeTenantSlug(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 // Dominios raíz propios cuyos subdominios representan comercios.
 // Configurable con NEXT_PUBLIC_ROOT_DOMAINS (separados por coma).
 // Hosts como "*.vercel.app" NO están acá: el subdominio ahí es el nombre del
@@ -82,32 +67,28 @@ export function getClientTenant(): string | null {
   if (typeof window === 'undefined') return null
   const fromHost = extractSubdomain(window.location.host)
   if (fromHost) {
-    try { window.sessionStorage.setItem('comandapp_active_tenant', fromHost) } catch { }
+    try { window.sessionStorage.setItem('comandapp_active_tenant', fromHost) } catch {}
     return fromHost
   }
 
   const params = new URLSearchParams(window.location.search)
   const fromQuery = params.get('negocio') || params.get('subdomain')
   if (fromQuery) {
-    const clean = normalizeTenantSlug(fromQuery)
-    if (clean) {
-      try { window.sessionStorage.setItem('comandapp_active_tenant', clean) } catch { }
-      return clean
-    }
+    const clean = fromQuery.toLowerCase()
+    try { window.sessionStorage.setItem('comandapp_active_tenant', clean) } catch {}
+    return clean
   }
 
   const match = window.location.pathname.match(/^\/tienda\/([^/]+)/)
   if (match) {
-    const clean = normalizeTenantSlug(decodeURIComponent(match[1]))
-    if (clean) {
-      try { window.sessionStorage.setItem('comandapp_active_tenant', clean) } catch { }
-      return clean
-    }
+    const clean = decodeURIComponent(match[1]).toLowerCase()
+    try { window.sessionStorage.setItem('comandapp_active_tenant', clean) } catch {}
+    return clean
   }
 
   // En /tienda raíz (sin subdominio ni ?negocio=), es la Tienda Demo: limpiar tenant previo
   if (window.location.pathname === '/tienda') {
-    try { window.sessionStorage.removeItem('comandapp_active_tenant') } catch { }
+    try { window.sessionStorage.removeItem('comandapp_active_tenant') } catch {}
     return null
   }
 
@@ -115,7 +96,7 @@ export function getClientTenant(): string | null {
     try {
       const saved = window.sessionStorage.getItem('comandapp_active_tenant')
       if (saved) return saved
-    } catch { }
+    } catch {}
   }
 
   return null
@@ -133,15 +114,14 @@ export function isOnTenantHost(): boolean {
  * Solo usar en el cliente.
  */
 export function buildTenantUrl(subdomain: string, path = '/'): string {
-  const cleanSub = normalizeTenantSlug(subdomain) || subdomain
   const { protocol, host } = window.location
   const root = matchRootDomain(host)
   if (root) {
     const port = host.includes(':') && !host.startsWith('[') ? `:${host.split(':')[1]}` : ''
-    return `${protocol}//${cleanSub}.${root}${port}${path}`
+    return `${protocol}//${subdomain}.${root}${port}${path}`
   }
   const sep = path.includes('?') ? '&' : '?'
-  return `${path}${sep}negocio=${encodeURIComponent(cleanSub)}`
+  return `${path}${sep}negocio=${encodeURIComponent(subdomain)}`
 }
 
 /**

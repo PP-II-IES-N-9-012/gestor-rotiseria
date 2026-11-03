@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   PackageSearch, 
   Loader2, 
@@ -18,10 +18,8 @@ import {
   getAllInventory, 
   refillInventory, 
   saveInventoryItem, 
-  deleteInventoryItem,
-  invalidateCache
+  deleteInventoryItem 
 } from '@/lib/api'
-import { subscribeToStoreRealtime } from '@/lib/realtime'
 import { useAdminRestaurant } from '@/lib/AdminContext'
 
 interface InventoryItem {
@@ -67,26 +65,11 @@ export default function InventoryPage() {
   // Quick Refill Modal State
   const [refillModalItem, setRefillModalItem] = useState<InventoryItem | null>(null)
   const [refillAmount, setRefillAmount] = useState<number | ''>('')
-  const [refillError, setRefillError] = useState('')
   const [refilling, setRefilling] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setToast({ type, message })
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToast(null), 3500)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    }
-  }, [])
-
-  const loadInventory = async (silent = false) => {
+  const loadInventory = async () => {
     try {
-      if (!silent) setLoading(true)
+      setLoading(true)
       const data = await getAllInventory(restaurantId)
       setItems(data || [])
     } catch (error) {
@@ -97,16 +80,7 @@ export default function InventoryPage() {
   }
 
   useEffect(() => {
-    loadInventory(false)
-    if (!restaurantId) return
-    const unsubscribe = subscribeToStoreRealtime(restaurantId, (evt) => {
-      if (evt.type === 'inventory_update' || evt.type === 'new_order') {
-        invalidateCache('all_inventory')
-        invalidateCache('critical_inventory')
-        loadInventory(true)
-      }
-    })
-    return () => unsubscribe()
+    loadInventory()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId])
 
@@ -150,8 +124,7 @@ export default function InventoryPage() {
       }, restaurantId || 'default')
 
       setIsModalOpen(false)
-      showToast('success', editingItem ? 'Insumo actualizado correctamente.' : 'Insumo registrado en el inventario.')
-      loadInventory(true)
+      loadInventory()
     } catch (err: any) {
       console.error('Error saving inventory item:', err)
       setFormError('No se pudo guardar el insumo. Intenta nuevamente.')
@@ -168,45 +141,37 @@ export default function InventoryPage() {
     try {
       await deleteInventoryItem(item.id, restaurantId)
       setItems(prev => prev.filter(i => i.id !== item.id))
-      showToast('success', `"${item.name}" eliminado del inventario.`)
     } catch (err) {
       console.error('Error deleting inventory item:', err)
-      showToast('error', 'Error al eliminar el insumo.')
+      alert('Error al eliminar el insumo.')
     }
   }
 
   const handleQuickRefillSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!refillModalItem || !refillAmount || Number(refillAmount) <= 0) {
-      setRefillError('Ingresa una cantidad válida mayor a 0.')
+      alert('Ingresa una cantidad válida mayor a 0.')
       return
     }
 
     setRefilling(true)
-    setRefillError('')
     try {
-      const addedQty = Number(refillAmount)
-      const itemName = refillModalItem.name
-      const itemUnit = refillModalItem.unit
-      await refillInventory(refillModalItem.id, addedQty, restaurantId)
+      await refillInventory(refillModalItem.id, Number(refillAmount))
       setRefillModalItem(null)
       setRefillAmount('')
-      showToast('success', `+${addedQty} ${itemUnit} ingresados a ${itemName}.`)
-      loadInventory(true)
+      loadInventory()
     } catch (err) {
       console.error('Error refilling item:', err)
-      setRefillError('No se pudo actualizar el stock. Intenta nuevamente.')
+      alert('No se pudo actualizar el stock.')
     } finally {
       setRefilling(false)
     }
   }
 
-  // Filtrado seguro ante valores nulos
+  // Filtrado
   const filteredItems = items.filter(item => {
-    const q = searchQuery.toLowerCase().trim()
-    const matchesSearch = !q ||
-                          (item.name || '').toLowerCase().includes(q) ||
-                          (item.unit || '').toLowerCase().includes(q)
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.unit.toLowerCase().includes(searchQuery.toLowerCase())
     const isCritical = Number(item.quantity_available) <= Number(item.min_stock)
     const matchesCritical = !filterCriticalOnly || isCritical
     return matchesSearch && matchesCritical
@@ -216,14 +181,6 @@ export default function InventoryPage() {
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col h-full space-y-6">
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4">
-          <div className={`px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-2 text-xs font-semibold ${toast.type === 'success' ? 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200' : 'bg-rose-950/95 border-rose-500/50 text-rose-200'}`}>
-            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />}
-            <span>{toast.message}</span>
-          </div>
-        </div>
-      )}
       
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -378,7 +335,6 @@ export default function InventoryPage() {
                               onClick={() => {
                                 setRefillModalItem(item)
                                 setRefillAmount('')
-                                setRefillError('')
                               }}
                               className="border border-[color:var(--store-border)] bg-[color:var(--store-subtle-bg)] hover:bg-white/10 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition-all"
                             >
@@ -560,11 +516,6 @@ export default function InventoryPage() {
             </div>
 
             <form onSubmit={handleQuickRefillSubmit} className="space-y-4 text-xs">
-              {refillError && (
-                <div className="p-2.5 bg-red-950/40 border border-red-500/50 rounded-xl text-red-200">
-                  {refillError}
-                </div>
-              )}
               <p className="text-[color:var(--store-text-muted)] leading-relaxed">
                 Stock actual: <strong className="text-white">{refillModalItem.quantity_available} {refillModalItem.unit}</strong>.
                 Ingresa cuántas unidades/kilos estás recibiendo para sumarlas al inventario:

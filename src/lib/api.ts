@@ -752,7 +752,6 @@ export async function updateRestaurantBranding(
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('comandapp-branding-updated', { detail: mergedData }))
   }
-  void emitRealtimeStoreEvent({ type: 'store_config_update', restaurantId })
 
   return true
 }
@@ -1034,7 +1033,6 @@ export async function saveProduct(
     inMemoryRecipes.set(targetId, recipe)
     invalidateCache('products')
     invalidateCache('admin_products')
-    void emitRealtimeStoreEvent({ type: 'product_update', restaurantId })
     return targetId
   }
 
@@ -1117,7 +1115,6 @@ export async function saveProduct(
 
   invalidateCache('products')
   invalidateCache('admin_products')
-  void emitRealtimeStoreEvent({ type: 'product_update', restaurantId })
   return productId
 }
 
@@ -1128,7 +1125,6 @@ export async function deleteProduct(productId: string, restaurantId?: string) {
     inMemoryRecipes.delete(productId)
     invalidateCache('products')
     invalidateCache('admin_products')
-    void emitRealtimeStoreEvent({ type: 'product_update', restaurantId })
     return
   }
 
@@ -1141,38 +1137,25 @@ export async function deleteProduct(productId: string, restaurantId?: string) {
   inMemoryRecipes.delete(productId)
   invalidateCache('products')
   invalidateCache('admin_products')
-  void emitRealtimeStoreEvent({ type: 'product_update', restaurantId })
 }
 
-export async function toggleProductAvailability(
-  productId: string,
-  isAvailable: boolean,
-  restaurantId?: string
-) {
+export async function toggleProductAvailability(productId: string, isAvailable: boolean) {
   const demoProd = ARTISANAL_FALLBACK_PRODUCTS.find(p => p.id === productId)
-  if (demoProd || isSampleRestaurantId(restaurantId)) {
-    if (demoProd) demoProd.is_available = isAvailable
+  if (demoProd) {
+    demoProd.is_available = isAvailable
     invalidateCache('products')
     invalidateCache('admin_products')
-    void emitRealtimeStoreEvent({ type: 'product_update', restaurantId })
     return
   }
 
-  let builder = supabase
+  const { error } = await supabase
     .from('products')
     .update({ is_available: isAvailable })
     .eq('id', productId)
 
-  if (restaurantId) {
-    builder = builder.eq('restaurant_id', restaurantId)
-  }
-
-  const { error } = await builder
-
   if (error) throw error
   invalidateCache('products')
   invalidateCache('admin_products')
-  void emitRealtimeStoreEvent({ type: 'product_update', restaurantId })
 }
 
 // Descuenta automáticamente los insumos consumidos del inventario según la receta
@@ -1223,56 +1206,32 @@ export async function deductInventoryForItems(
     }
   }
 
-  // 3. Aplicar las deducciones al inventario (paralelizado para velocidad en Checkout y POS)
-  if (totalDeductions.size === 0) return
+  // 3. Aplicar las deducciones al inventario
+  for (const [inventoryItemId, deduction] of Array.from(totalDeductions.entries())) {
+    try {
+      const { data: currentItem } = await supabase
+        .from('inventory_items')
+        .select('quantity_available')
+        .eq('id', inventoryItemId)
+        .maybeSingle()
 
-  if (isSampleRestaurantId(restaurantId)) {
-    for (const [inventoryItemId, deduction] of Array.from(totalDeductions.entries())) {
-      const sampleItem = SAMPLE_INVENTORY.find((i) => i.id === inventoryItemId)
-      if (sampleItem) {
-        sampleItem.quantity_available = Math.max(0, Number(sampleItem.quantity_available) - deduction)
-      }
-    }
-    invalidateCache('all_inventory')
-    invalidateCache('critical_inventory')
-    void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
-    return
-  }
+      if (currentItem) {
+        const newQty = Math.max(0, Number(currentItem.quantity_available) - deduction)
+        await supabase
+          .from('inventory_items')
+          .update({ quantity_available: newQty })
+          .eq('id', inventoryItemId)
 
-  try {
-    const itemIds = Array.from(totalDeductions.keys())
-    let fetchBuilder = supabase
-      .from('inventory_items')
-      .select('id, quantity_available')
-      .in('id', itemIds)
-
-    if (restaurantId) {
-      fetchBuilder = fetchBuilder.eq('restaurant_id', restaurantId)
-    }
-
-    const { data: currentItems } = await fetchBuilder
-    if (currentItems && currentItems.length > 0) {
-      await Promise.all(
-        currentItems.map(async (currentItem: { id: string; quantity_available: number }) => {
-          const deduction = totalDeductions.get(currentItem.id) || 0
-          if (deduction <= 0) return
-          const newQty = Math.max(0, Number(currentItem.quantity_available) - deduction)
-          await Promise.all([
-            supabase
-              .from('inventory_items')
-              .update({ quantity_available: newQty })
-              .eq('id', currentItem.id),
-            supabase.from('inventory_movements').insert({
-              item_id: currentItem.id,
-              quantity_change: -deduction,
-              movement_type: 'out'
-            })
-          ])
+        // Registrar movimiento de salida
+        await supabase.from('inventory_movements').insert({
+          item_id: inventoryItemId,
+          quantity_change: -deduction,
+          movement_type: 'out'
         })
-      )
+      }
+    } catch (err) {
+      console.warn('Error updating inventory item deduction:', inventoryItemId, err)
     }
-  } catch (err) {
-    console.warn('Error batch updating inventory deductions:', err)
   }
 
   invalidateCache('all_inventory')
@@ -1527,38 +1486,15 @@ export async function createOrder(
   return enrichedOrder
 }
 
-function formatHexAsUuid(hex32: string): string {
-  return `${hex32.slice(0, 8)}-${hex32.slice(8, 12)}-${hex32.slice(12, 16)}-${hex32.slice(16, 20)}-${hex32.slice(20, 32)}`
-}
-
-// Para seguimiento público (acepta UUID completo o código corto como #B326ADF8)
+// Para seguimiento público
 export async function getOrderById(orderId: string, restaurantId?: string) {
-  const cleanId = orderId.trim().replace(/^#+/, '').trim()
-  if (!cleanId) return null
-  const lowerId = cleanId.toLowerCase()
+  const cleanId = orderId.trim()
+  const memMatch =
+    inMemoryCreatedOrders.find((o) => o.id === cleanId) ||
+    getRecentOrderLocal(cleanId)
 
-  const recentPool = getRecentLocalOrders()
-  const localCandidates = [...inMemoryCreatedOrders, ...recentPool, ...SAMPLE_ADMIN_ORDERS]
-  const memMatch = localCandidates.find((o) => {
-    if (!o?.id) return false
-    if (restaurantId && o.restaurant_id && o.restaurant_id !== restaurantId) return false
-    const cand = String(o.id).toLowerCase()
-    if (cand === lowerId) return true
-    if (lowerId.length >= 6 && (cand.startsWith(lowerId) || cand.replace(/-/g, '').startsWith(lowerId.replace(/-/g, '')))) {
-      return true
-    }
-    return false
-  })
-
-  if (isSampleRestaurantId(restaurantId) && lowerId !== FALLBACK_RESTAURANT.id) {
-    return memMatch || null
-  }
-
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const strippedHex = lowerId.replace(/-/g, '')
-  const isShortHexPrefix = !uuidRegex.test(lowerId) && /^[0-9a-f]{6,31}$/.test(strippedHex)
-
-  if (!uuidRegex.test(lowerId) && !isShortHexPrefix) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(cleanId)) {
     return memMatch || null
   }
 
@@ -1575,23 +1511,18 @@ export async function getOrderById(orderId: string, restaurantId?: string) {
         )
       )
     `)
+    .eq('id', cleanId)
 
-  if (uuidRegex.test(lowerId)) {
-    builder = builder.eq('id', lowerId)
-  } else {
-    const minUuid = formatHexAsUuid(strippedHex.padEnd(32, '0'))
-    const maxUuid = formatHexAsUuid(strippedHex.padEnd(32, 'f'))
-    builder = builder.gte('id', minUuid).lte('id', maxUuid).order('created_at', { ascending: false }).limit(1)
-  }
-
-  if (restaurantId && !isSampleRestaurantId(restaurantId)) {
+  if (restaurantId) {
     builder = builder.eq('restaurant_id', restaurantId)
   }
 
-  const query = builder.then(({ data, error }) => {
-    const row = Array.isArray(data) ? data[0] : data
-    if (!error && row) {
-      return enrichOrderItemsFallback(row, recentPool)
+  const query = builder.maybeSingle().then(({ data, error }) => {
+    if (!error && data) {
+      if ((!data.order_items || data.order_items.length === 0) && memMatch?.order_items) {
+        return { ...data, order_items: memMatch.order_items }
+      }
+      return data
     }
     return null
   })
@@ -1737,46 +1668,31 @@ export async function getOrdersByStatus(statuses: string[], restaurantId?: strin
   return result
 }
 
-export async function updateOrderStatus(orderId: string, status: string, restaurantId?: string) {
+export async function updateOrderStatus(orderId: string, status: string) {
   const memOrder = inMemoryCreatedOrders.find((o) => o.id === orderId)
   if (memOrder) {
     memOrder.status = status
-  }
-  const sampleOrder = SAMPLE_ADMIN_ORDERS.find((o) => o.id === orderId)
-  if (sampleOrder) {
-    sampleOrder.status = status
   }
   updateRecentLocalOrderStatus(orderId, status)
   const localOrder = getRecentOrderLocal(orderId)
   if (localOrder) {
     saveRecentOrderLocal({ ...localOrder, status })
   }
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', orderId)
 
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)
-  if (isUuid && !isSampleRestaurantId(restaurantId)) {
-    try {
-      let builder = supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId)
-
-      if (restaurantId) {
-        builder = builder.eq('restaurant_id', restaurantId)
-      }
-
-      const { error } = await builder
-      if (error) throw error
-    } catch (err) {
-      console.warn('Mock updating order status', orderId, status, err)
-    }
+    if (error) throw error
+  } catch (err) {
+    console.warn('Mock updating order status', orderId, status)
   }
-
   invalidateCache('orders')
   invalidateCache('today_orders')
   invalidateCache('orders_period')
   void emitRealtimeStoreEvent({
     type: 'order_status',
-    restaurantId,
     orderId,
     status
   })
@@ -1847,54 +1763,33 @@ export async function getCriticalInventory(restaurantId?: string) {
   return result
 }
 
-export async function refillInventory(itemId: string, amount: number, restaurantId?: string) {
+export async function refillInventory(itemId: string, amount: number) {
   const sampleIdx = SAMPLE_INVENTORY.findIndex((i) => i.id === itemId)
   if (sampleIdx !== -1) {
-    SAMPLE_INVENTORY[sampleIdx].quantity_available = Math.max(
-      0,
-      Number(SAMPLE_INVENTORY[sampleIdx].quantity_available) + Number(amount)
-    )
+    SAMPLE_INVENTORY[sampleIdx].quantity_available = Number(SAMPLE_INVENTORY[sampleIdx].quantity_available) + Number(amount)
   }
 
-  if (!isSampleRestaurantId(restaurantId) && sampleIdx === -1) {
-    try {
-      let fetchBuilder = supabase
-        .from('inventory_items')
-        .select('quantity_available, restaurant_id')
-        .eq('id', itemId)
+  try {
+    const { data: current, error: fetchError } = await supabase
+      .from('inventory_items')
+      .select('quantity_available')
+      .eq('id', itemId)
+      .single()
 
-      if (restaurantId) fetchBuilder = fetchBuilder.eq('restaurant_id', restaurantId)
+    if (fetchError) throw fetchError
 
-      const { data: current, error: fetchError } = await fetchBuilder.single()
-      if (fetchError) throw fetchError
+    const { error } = await supabase
+      .from('inventory_items')
+      .update({ quantity_available: Number(current.quantity_available) + Number(amount) })
+      .eq('id', itemId)
 
-      const nextQty = Math.max(0, Number(current.quantity_available) + Number(amount))
-      const effectiveRestId = restaurantId || current.restaurant_id
-
-      await Promise.all([
-        supabase
-          .from('inventory_items')
-          .update({ quantity_available: nextQty })
-          .eq('id', itemId),
-        supabase.from('inventory_movements').insert({
-          item_id: itemId,
-          quantity_change: Number(amount),
-          movement_type: Number(amount) >= 0 ? 'in' : 'out'
-        })
-      ])
-
-      invalidateCache('critical_inventory')
-      invalidateCache('all_inventory')
-      void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId: effectiveRestId })
-      return
-    } catch (err) {
-      console.warn('Mock refill inventory', itemId, amount, err)
-    }
+    if (error) throw error
+  } catch (err) {
+    console.warn('Mock refill inventory', itemId, amount)
   }
-
   invalidateCache('critical_inventory')
   invalidateCache('all_inventory')
-  void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
+  void emitRealtimeStoreEvent({ type: 'inventory_update' })
 }
 
 export async function createInventoryItem(
@@ -2553,7 +2448,6 @@ export async function saveInventoryItem(
     }
     invalidateCache('all_inventory')
     invalidateCache('critical_inventory')
-    void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
     return
   }
 
@@ -2608,5 +2502,4 @@ export async function saveInventoryItem(
 
   invalidateCache('all_inventory')
   invalidateCache('critical_inventory')
-  void emitRealtimeStoreEvent({ type: 'inventory_update', restaurantId })
 }

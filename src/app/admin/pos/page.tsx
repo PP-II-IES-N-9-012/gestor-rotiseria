@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Search, 
   Plus, 
@@ -15,11 +15,9 @@ import {
   Utensils, 
   CheckCircle2, 
   Receipt,
-  AlertCircle,
-  Printer
+  AlertCircle
 } from 'lucide-react'
-import { getProducts, createOrder, invalidateCache } from '@/lib/api'
-import { subscribeToStoreRealtime } from '@/lib/realtime'
+import { getProducts, createOrder } from '@/lib/api'
 import { useAdminRestaurant } from '@/lib/AdminContext'
 
 interface CartItem {
@@ -52,57 +50,20 @@ export default function POSPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successOrder, setSuccessOrder] = useState<any | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const [confirmClear, setConfirmClear] = useState(false)
-  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Respetar medios de pago habilitados por el restaurante
-  const rawCash = restaurant?.accepts_cash !== false
-  const rawTransfer = restaurant?.accepts_transfer !== false
-  const rawCard = restaurant?.accepts_card !== false
-  const anyPaymentEnabled = rawCash || rawTransfer || rawCard
-  const acceptsCash = anyPaymentEnabled ? rawCash : true
-  const acceptsTransfer = anyPaymentEnabled ? rawTransfer : true
-  const acceptsCard = anyPaymentEnabled ? rawCard : true
 
   useEffect(() => {
-    if (paymentMethod === 'cash' && !acceptsCash) {
-      setPaymentMethod(acceptsTransfer ? 'transfer' : 'card')
-    } else if (paymentMethod === 'transfer' && !acceptsTransfer) {
-      setPaymentMethod(acceptsCash ? 'cash' : 'card')
-    } else if (paymentMethod === 'card' && !acceptsCard) {
-      setPaymentMethod(acceptsCash ? 'cash' : 'transfer')
-    }
-  }, [acceptsCash, acceptsTransfer, acceptsCard, paymentMethod])
-
-  useEffect(() => {
-    return () => {
-      if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
-    }
-  }, [])
-
-  const loadProducts = useCallback(async (silent = false) => {
-    try {
-      if (!silent) setLoading(true)
-      const data = await getProducts(restaurantId)
-      setProducts(data || [])
-    } catch (error) {
-      console.error("Error loading products", error)
-    } finally {
-      setLoading(false)
-    }
-  }, [restaurantId])
-
-  useEffect(() => {
-    loadProducts(false)
-    if (!restaurantId) return
-    const unsubscribe = subscribeToStoreRealtime(restaurantId, (evt) => {
-      if (evt.type === 'product_update' || evt.type === 'store_config_update') {
-        invalidateCache('products')
-        loadProducts(true)
+    async function loadProducts() {
+      try {
+        const data = await getProducts(restaurantId)
+        setProducts(data || [])
+      } catch (error) {
+        console.error("Error loading products", error)
+      } finally {
+        setLoading(false)
       }
-    })
-    return () => unsubscribe()
-  }, [restaurantId, loadProducts])
+    }
+    loadProducts()
+  }, [restaurantId])
   
   const addToCart = (product: any) => {
     setCart(prev => {
@@ -134,16 +95,11 @@ export default function POSPage() {
 
   const clearCart = () => {
     if (cart.length === 0) return
-    if (!confirmClear) {
-      setConfirmClear(true)
-      if (clearTimerRef.current) clearTimeout(clearTimerRef.current)
-      clearTimerRef.current = setTimeout(() => setConfirmClear(false), 3000)
-      return
+    if (confirm('¿Vaciar todos los productos del ticket actual?')) {
+      setCart([])
+      setCashGiven('')
+      setNotes('')
     }
-    setCart([])
-    setCashGiven('')
-    setNotes('')
-    setConfirmClear(false)
   }
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
@@ -171,7 +127,7 @@ export default function POSPage() {
         product_name: item.name
       })), restaurantId)
       
-      setSuccessOrder({ ...newOrder, _items: cart.map(i => ({ ...i })) })
+      setSuccessOrder(newOrder)
       setCart([])
       setCustomerName('')
       setCustomerAddress('')
@@ -188,10 +144,8 @@ export default function POSPage() {
   const categories = ['Todas las categorías', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
   
   const filteredProducts = products.filter(p => {
-    const q = searchQuery.toLowerCase().trim()
-    const matchesSearch = !q ||
-                          (p.name || '').toLowerCase().includes(q) ||
-                          (p.code || '').toLowerCase().includes(q)
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (p.code && p.code.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesCategory = categoryFilter === 'Todas las categorías' || p.category === categoryFilter
     return matchesSearch && matchesCategory
   })
@@ -265,8 +219,6 @@ export default function POSPage() {
                       <img
                         src={p.image_url}
                         alt={p.name}
-                        loading="lazy"
-                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
@@ -339,10 +291,10 @@ export default function POSPage() {
           {cart.length > 0 && (
             <button
               onClick={clearCart}
-              className={`text-xs px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 font-semibold ${confirmClear ? 'bg-red-500/25 text-red-200 border border-red-500/40' : 'text-red-400/80 hover:text-red-400 hover:bg-red-500/10'}`}
+              className="text-xs text-red-400/80 hover:text-red-400 hover:bg-red-500/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>{confirmClear ? '¿Confirmar?' : 'Vaciar'}</span>
+              <span>Vaciar</span>
             </button>
           )}
         </div>
@@ -423,8 +375,6 @@ export default function POSPage() {
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    loading="lazy"
-                    decoding="async"
                     className="w-10 h-10 rounded-lg object-cover border border-white/10 shrink-0"
                   />
                 ) : (
@@ -508,64 +458,55 @@ export default function POSPage() {
           </div>
 
           {/* Payment Method Switcher */}
-          <div className="flex gap-1.5 text-xs">
-            {acceptsCash && (
-              <button 
-                type="button"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all border font-semibold"
-                style={paymentMethod === 'cash' ? {
-                  backgroundColor: `${primaryColor}20`,
-                  borderColor: primaryColor,
-                  color: primaryColor
-                } : {
-                  backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
-                  borderColor: 'var(--store-border, transparent)',
-                  color: 'var(--store-text-muted, #94a3b8)'
-                }}
-                onClick={() => setPaymentMethod('cash')}
-              >
-                <Banknote className="w-3.5 h-3.5" />
-                <span>Efectivo</span>
-              </button>
-            )}
-            {acceptsTransfer && (
-              <button 
-                type="button"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all border font-semibold"
-                style={paymentMethod === 'transfer' ? {
-                  backgroundColor: `${primaryColor}20`,
-                  borderColor: primaryColor,
-                  color: primaryColor
-                } : {
-                  backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
-                  borderColor: 'var(--store-border, transparent)',
-                  color: 'var(--store-text-muted, #94a3b8)'
-                }}
-                onClick={() => setPaymentMethod('transfer')}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Transf/MP</span>
-              </button>
-            )}
-            {acceptsCard && (
-              <button 
-                type="button"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all border font-semibold"
-                style={paymentMethod === 'card' ? {
-                  backgroundColor: `${primaryColor}20`,
-                  borderColor: primaryColor,
-                  color: primaryColor
-                } : {
-                  backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
-                  borderColor: 'var(--store-border, transparent)',
-                  color: 'var(--store-text-muted, #94a3b8)'
-                }}
-                onClick={() => setPaymentMethod('card')}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Tarjeta</span>
-              </button>
-            )}
+          <div className="grid grid-cols-3 gap-1.5 text-xs">
+            <button 
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all border font-semibold"
+              style={paymentMethod === 'cash' ? {
+                backgroundColor: `${primaryColor}20`,
+                borderColor: primaryColor,
+                color: primaryColor
+              } : {
+                backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
+                borderColor: 'var(--store-border, transparent)',
+                color: 'var(--store-text-muted, #94a3b8)'
+              }}
+              onClick={() => setPaymentMethod('cash')}
+            >
+              <Banknote className="w-3.5 h-3.5" />
+              <span>Efectivo</span>
+            </button>
+            <button 
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all border font-semibold"
+              style={paymentMethod === 'transfer' ? {
+                backgroundColor: `${primaryColor}20`,
+                borderColor: primaryColor,
+                color: primaryColor
+              } : {
+                backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
+                borderColor: 'var(--store-border, transparent)',
+                color: 'var(--store-text-muted, #94a3b8)'
+              }}
+              onClick={() => setPaymentMethod('transfer')}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Transf/MP</span>
+            </button>
+            <button 
+              className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl transition-all border font-semibold"
+              style={paymentMethod === 'card' ? {
+                backgroundColor: `${primaryColor}20`,
+                borderColor: primaryColor,
+                color: primaryColor
+              } : {
+                backgroundColor: 'var(--store-subtle-bg, rgba(30, 41, 59, 0.6))',
+                borderColor: 'var(--store-border, transparent)',
+                color: 'var(--store-text-muted, #94a3b8)'
+              }}
+              onClick={() => setPaymentMethod('card')}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Tarjeta</span>
+            </button>
           </div>
 
           {/* Cash Change Calculator */}
@@ -618,65 +559,35 @@ export default function POSPage() {
           onClick={() => setSuccessOrder(null)}
         >
           <div 
-            className="print-active bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 md:p-8 max-w-sm w-full text-center shadow-2xl space-y-4"
+            className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 md:p-8 max-w-sm w-full text-center shadow-2xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="no-print w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/40">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/40">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="badge-rustic text-xs">{restaurant?.name || 'ComandApp'} • Ticket POS</span>
+              <span className="badge-rustic text-xs">Venta Registrada</span>
               <h3 className="font-rustic font-bold text-2xl text-white mt-1">
                 ¡Enviada a Cocina!
               </h3>
               <p className="text-xs text-[color:var(--store-text-muted)] mt-1 font-mono">
-                Comanda #{successOrder.id.slice(0, 8).toUpperCase()}
+                Comanda #{successOrder.id.slice(0, 6).toUpperCase()}
               </p>
             </div>
 
-            <div className="bg-[color:var(--store-subtle-bg)] p-3.5 rounded-xl border border-[color:var(--store-border)] text-xs text-left text-[color:var(--store-text-soft)] space-y-1.5">
-              {successOrder.guest_name && (
-                <p><strong className="text-white">Cliente / Mesa:</strong> {successOrder.guest_name}</p>
-              )}
-              <p><strong className="text-white">Modalidad:</strong> {successOrder.delivery_type === 'delivery' ? 'Delivery' : successOrder.delivery_type === 'dine_in' ? 'Salón / Mesa' : 'Mostrador'}</p>
-              {successOrder.guest_address && (
-                <p><strong className="text-white">Dirección:</strong> {successOrder.guest_address}</p>
-              )}
+            <div className="bg-[color:var(--store-subtle-bg)] p-3 rounded-xl border border-[color:var(--store-border)] text-xs text-left text-[color:var(--store-text-soft)] space-y-1">
+              <p><strong className="text-white">Total Cobrado:</strong> ${Number(successOrder.total_amount).toLocaleString('es-AR')}</p>
               <p><strong className="text-white">Medio:</strong> {successOrder.payment_method === 'cash' ? 'Efectivo' : successOrder.payment_method === 'transfer' ? 'Transferencia / MP' : 'Tarjeta'}</p>
-              {Array.isArray(successOrder._items) && successOrder._items.length > 0 && (
-                <div className="pt-2 mt-2 border-t border-white/10 space-y-1">
-                  {successOrder._items.map((it: CartItem) => (
-                    <div key={it.id} className="flex justify-between text-[11px]">
-                      <span className="text-white">{it.quantity}x {it.name}</span>
-                      <span className="font-mono">${(it.quantity * it.price).toLocaleString('es-AR')}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {successOrder.notes && (
-                <p className="pt-1.5 border-t border-white/10 text-amber-300 italic">Nota: {successOrder.notes}</p>
-              )}
-              <p className="pt-2 border-t border-white/10 text-sm"><strong className="text-white">Total Cobrado:</strong> ${Number(successOrder.total_amount).toLocaleString('es-AR')}</p>
+              <p><strong className="text-white">Modalidad:</strong> {successOrder.delivery_type === 'delivery' ? 'Delivery' : successOrder.delivery_type === 'dine_in' ? 'Salón' : 'Mostrador'}</p>
             </div>
 
-            <div className="no-print flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="w-full btn-secondary py-2.5 text-xs font-bold flex items-center justify-center gap-2"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Imprimir Ticket / Comanda</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSuccessOrder(null)}
-                className="w-full btn-primary py-2.5 text-xs font-bold"
-              >
-                Tomar Siguiente Pedido
-              </button>
-            </div>
+            <button
+              onClick={() => setSuccessOrder(null)}
+              className="w-full btn-primary py-2.5 text-xs font-bold"
+            >
+              Tomar Siguiente Pedido
+            </button>
           </div>
         </div>
       )}

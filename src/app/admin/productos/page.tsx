@@ -17,8 +17,7 @@ import {
   Sparkles, 
   Power,
   Image as ImageIcon,
-  Upload,
-  CheckCircle2
+  Upload
 } from 'lucide-react'
 import { 
   getAdminProducts, 
@@ -31,7 +30,6 @@ import {
   type ProductItem 
 } from '@/lib/api'
 import { useAdminRestaurant } from '@/lib/AdminContext'
-import { isLocalOnlyRestaurantId, subscribeToStoreRealtime } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 
 interface RecipeRow {
@@ -83,21 +81,7 @@ export default function AdminProductsPage() {
   const [formError, setFormError] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showManualUrl, setShowManualUrl] = useState(false)
-  const [actionToast, setActionToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setActionToast({ type, message })
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setActionToast(null), 3500)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    }
-  }, [])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -116,9 +100,9 @@ export default function AdminProductsPage() {
     }
   }
 
-  const loadData = async (silent = false) => {
+  const loadData = async () => {
     try {
-      if (!silent) setLoading(true)
+      setLoading(true)
       const [prods, inv] = await Promise.all([
         getAdminProducts(restaurantId),
         getAllInventory(restaurantId)
@@ -133,24 +117,8 @@ export default function AdminProductsPage() {
   }
 
   useEffect(() => {
-    loadData(false)
+    loadData()
     if (!restaurantId) return
-
-    const unsubStore = subscribeToStoreRealtime(restaurantId, (evt) => {
-      if (evt.type === 'inventory_update' || evt.type === 'product_update') {
-        invalidateCache('admin_products')
-        invalidateCache('products')
-        invalidateCache('all_inventory')
-        loadData(true)
-      }
-    })
-
-    if (isLocalOnlyRestaurantId(restaurantId)) {
-      return () => {
-        unsubStore()
-      }
-    }
-
     const channel = supabase
       .channel(`admin-products-sync-${restaurantId}`)
       .on(
@@ -159,13 +127,12 @@ export default function AdminProductsPage() {
         () => {
           invalidateCache('admin_products')
           invalidateCache('products')
-          loadData(true)
+          loadData()
         }
       )
       .subscribe()
 
     return () => {
-      unsubStore()
       supabase.removeChannel(channel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -190,8 +157,8 @@ export default function AdminProductsPage() {
 
   const openEditModal = (product: ProductItem) => {
     setEditingId(product.id)
-    setFormName(product.name || '')
-    setFormCode(product.code || '')
+    setFormName(product.name)
+    setFormCode(product.code)
     setFormCategory(product.category || 'Varios')
     setFormPrice(Number(product.price) || 0)
     setFormDescription(product.description || '')
@@ -213,7 +180,7 @@ export default function AdminProductsPage() {
 
   const handleAddRecipeItem = () => {
     if (inventoryList.length === 0) {
-      setFormError('Primero debes agregar insumos en la sección de Inventario.')
+      alert('Primero debes agregar insumos en la sección de Inventario.')
       return
     }
     // Seleccionar por defecto el primer insumo que aún no esté en la receta
@@ -273,8 +240,7 @@ export default function AdminProductsPage() {
       )
 
       setIsModalOpen(false)
-      showToast('success', editingId ? 'Plato actualizado con éxito.' : 'Nuevo plato incorporado a la carta.')
-      loadData(true)
+      loadData()
     } catch (err: any) {
       console.error('Error saving product:', err)
       setFormError(err.message || 'Error al guardar el plato.')
@@ -285,12 +251,11 @@ export default function AdminProductsPage() {
 
   const handleToggleAvailable = async (product: ProductItem) => {
     try {
-      await toggleProductAvailability(product.id, !product.is_available, restaurantId)
+      await toggleProductAvailability(product.id, !product.is_available)
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_available: !p.is_available } : p))
-      showToast('success', !product.is_available ? `"${product.name}" activado en la carta.` : `"${product.name}" pausado temporalmente.`)
     } catch (err) {
       console.error('Error toggling availability:', err)
-      showToast('error', 'No se pudo cambiar la disponibilidad.')
+      alert('No se pudo cambiar la disponibilidad.')
     }
   }
 
@@ -300,35 +265,23 @@ export default function AdminProductsPage() {
     try {
       await deleteProduct(product.id, restaurantId)
       setProducts(prev => prev.filter(p => p.id !== product.id))
-      showToast('success', `"${product.name}" eliminado del catálogo.`)
     } catch (err) {
       console.error('Error deleting product:', err)
-      showToast('error', 'No se pudo eliminar el plato.')
+      alert('No se pudo eliminar el plato.')
     }
   }
 
-  // Filtrado seguro ante valores nulos
+  // Filtrado
   const categories = ['Todas', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
   const filteredProducts = products.filter(p => {
-    const q = searchQuery.toLowerCase().trim()
-    const matchesSearch = !q ||
-                          (p.name || '').toLowerCase().includes(q) || 
-                          (p.code || '').toLowerCase().includes(q) ||
-                          (p.category || '').toLowerCase().includes(q)
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          p.code.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = categoryFilter === 'Todas' || p.category === categoryFilter
     return matchesSearch && matchesCategory
   })
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {actionToast && (
-        <div className="fixed top-6 right-6 z-50 animate-in fade-in slide-in-from-top-4">
-          <div className={`px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-2 text-xs font-semibold ${actionToast.type === 'success' ? 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200' : 'bg-rose-950/95 border-rose-500/50 text-rose-200'}`}>
-            {actionToast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />}
-            <span>{actionToast.message}</span>
-          </div>
-        </div>
-      )}
       
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -462,8 +415,6 @@ export default function AdminProductsPage() {
                       <img 
                         src={product.image_url} 
                         alt={product.name}
-                        loading="lazy"
-                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-90 group-hover:brightness-100"
                       />
                     ) : (

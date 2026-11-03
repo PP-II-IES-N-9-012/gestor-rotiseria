@@ -3,12 +3,10 @@
 @theme {
   --color-background: #151210;
   --color-foreground: #fcf9f5;
-  --color-primary: #d34e2c;
-  /* Warm artisanal terracotta / oven ember */
+  --color-primary: #d34e2c; /* Warm artisanal terracotta / oven ember */
   --color-primary-dark: #b83d1c;
   --color-primary-light: #ea643f;
-  --color-amber: #e59324;
-  /* Golden crust / homemade warmth */
+  --color-amber: #e59324; /* Golden crust / homemade warmth */
   --color-surface: #201a16;
   --color-surface-hover: #2c241f;
   --color-surface-card: #251e19;
@@ -36,8 +34,8 @@
     --store-border: #3d2f25;
     --store-subtle-bg: #181310;
     --store-text-muted: #b89e89;
-    --store-text-soft: #ddcfc2;
-    --store-text-faint: #8c6f59;
+  --store-text-soft: #ddcfc2;
+  --store-text-faint: #8c6f59;
     --store-badge-bg: rgba(30, 23, 19, 0.85);
     --store-badge-text: #fad4a7;
   }
@@ -46,17 +44,10 @@
     background-color: var(--background);
     color: var(--foreground);
     font-feature-settings: "rlig" 1, "calt" 1;
-    background-image:
+    background-image: 
       radial-gradient(ellipse at 15% 10%, rgba(211, 78, 44, 0.08) 0%, transparent 50%),
       radial-gradient(ellipse at 85% 90%, rgba(229, 147, 36, 0.06) 0%, transparent 50%);
-    /* En móvil 'scroll' evita el costoso repintado GPU por frame */
-    background-attachment: scroll;
-  }
-
-  @media (min-width: 768px) {
-    body {
-      background-attachment: fixed;
-    }
+    background-attachment: fixed;
   }
 
   /* Smooth scrolling */
@@ -68,16 +59,13 @@
   ::-webkit-scrollbar {
     width: 8px;
   }
-
   ::-webkit-scrollbar-track {
     background: #151210;
   }
-
   ::-webkit-scrollbar-thumb {
     background: #3d3128;
     border-radius: 4px;
   }
-
   ::-webkit-scrollbar-thumb:hover {
     background: #544437;
   }
@@ -122,17 +110,15 @@
     justify-content: center;
     gap: 0.5rem;
   }
-
   .btn-primary:hover {
     filter: brightness(1.12);
     transform: translateY(-1px);
     box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.55);
   }
-
   .btn-primary:active {
     transform: scale(0.97);
   }
-
+  
   .btn-amber {
     background: linear-gradient(135deg, var(--brand-primary, #e59324), var(--brand-secondary, #d34e2c));
     color: #ffffff;
@@ -147,12 +133,10 @@
     gap: 0.5rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
-
   .btn-amber:hover {
     filter: brightness(1.12);
     transform: translateY(-1px);
   }
-
   .btn-amber:active {
     transform: scale(0.97);
   }
@@ -173,7 +157,7 @@
     background-color: color-mix(in srgb, var(--brand-primary, #e59324) 10%, transparent);
     color: var(--brand-primary, #e59324);
     border: 1px solid var(--brand-primary, #e59324);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   }
 
   .badge-ember {
@@ -192,51 +176,42 @@
   .font-rustic {
     font-family: var(--active-font-heading, var(--font-serif), Georgia, serif) !important;
   }
-
   .font-modern {
     --active-font-heading: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
     --active-font-body: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
     font-family: var(--active-font-body) !important;
   }
-
   .font-style-serif {
     --active-font-heading: var(--font-serif), Georgia, serif;
     --active-font-body: var(--font-inter), system-ui, sans-serif;
     font-family: var(--active-font-body);
   }
-
   .font-style-sans {
     --active-font-heading: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
     --active-font-body: var(--font-outfit), var(--font-inter), system-ui, sans-serif;
     font-family: var(--active-font-body);
   }
-
   .font-style-urban {
     --active-font-heading: var(--font-oswald), Impact, sans-serif;
     --active-font-body: var(--font-outfit), system-ui, sans-serif;
     font-family: var(--active-font-body);
     letter-spacing: 0.01em;
   }
-
   .font-style-classic {
     --active-font-heading: var(--font-courier), 'Courier New', monospace;
     --active-font-body: var(--font-courier), 'Courier New', monospace;
     font-family: var(--active-font-body);
   }
-
   .font-preview-serif {
     font-family: var(--font-serif), Georgia, serif !important;
   }
-
   .font-preview-sans {
     font-family: var(--font-outfit), var(--font-inter), system-ui, sans-serif !important;
   }
-
   .font-preview-urban {
     font-family: var(--font-oswald), Impact, sans-serif !important;
     letter-spacing: 0.02em;
   }
-
   .font-preview-classic {
     font-family: var(--font-courier), 'Courier New', monospace !important;
   }
@@ -255,7 +230,6 @@
   --store-badge-bg: rgba(30, 23, 19, 0.85);
   --store-badge-text: #fad4a7;
 }
-
 .theme-midnight {
   --store-bg: #0b0d10;
   --store-header-bg: #13171f;
@@ -268,7 +242,6 @@
   --store-badge-bg: rgba(19, 23, 31, 0.85);
   --store-badge-text: #cbd5e1;
 }
-
 .theme-bodegon {
   --store-bg: #170f14;
   --store-header-bg: #22141d;
@@ -281,7 +254,6 @@
   --store-badge-bg: rgba(34, 20, 29, 0.85);
   --store-badge-text: #f5d0e8;
 }
-
 .theme-espresso {
   --store-bg: #141110;
   --store-header-bg: #1c1816;
@@ -294,7 +266,6 @@
   --store-badge-bg: rgba(28, 24, 22, 0.85);
   --store-badge-text: #e8dedb;
 }
-
 .theme-olive {
   --store-bg: #0e1511;
   --store-header-bg: #142119;
@@ -313,60 +284,15 @@
   border: 1px solid color-mix(in srgb, var(--brand-primary, #e59324) 18%, var(--store-border, #3d2f25));
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .store-card:hover {
   border-color: color-mix(in srgb, var(--brand-primary, #e59324) 45%, var(--store-border, #3d2f25));
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px -3px color-mix(in srgb, var(--brand-primary, #e59324) 20%, transparent);
 }
-
 .store-card-inner {
   background-color: var(--store-subtle-bg, #181310);
   border-color: var(--store-border, #3d2f25);
 }
-
 .store-text-muted {
   color: var(--store-text-muted, #b89e89);
 }
 
-/* Impresión limpia de Arqueo Z y Comandas POS */
-@media print {
-  body {
-    background: #ffffff !important;
-    background-image: none !important;
-    color: #000000 !important;
-  }
-
-  body:has(.print-active)>* {
-    visibility: hidden;
-  }
-
-  .print-active,
-  .print-active * {
-    visibility: visible !important;
-  }
-
-  .print-active {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    overflow: visible !important;
-    background: #ffffff !important;
-    color: #111111 !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 16px !important;
-  }
-
-  .print-active * {
-    background: transparent !important;
-    color: #111111 !important;
-    border-color: #d1d5db !important;
-    box-shadow: none !important;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-}
