@@ -349,7 +349,7 @@ export default function SettingsPage() {
         {/* ===================================================================== */}
         {/* SECCIÓN 1: VISTA PREVIA EN TIEMPO REAL */}
         {/* ===================================================================== */}
-        <div className="bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 shadow-xl space-y-4">
+        <div className={`bg-[color:var(--store-card-bg)] border border-[color:var(--store-border)] rounded-3xl p-6 shadow-xl space-y-4 font-style-${formData.font_style || 'serif'}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[color:var(--store-text-muted)] flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5" style={{ color: activePrimary }} />
@@ -439,7 +439,7 @@ export default function SettingsPage() {
                   </div>
 
                   <h3 
-                    className={`text-2xl sm:text-3xl font-bold text-white ${formData.font_style === 'sans' ? 'font-sans' : 'font-rustic'}`}
+                    className="text-2xl sm:text-3xl font-bold text-white font-rustic"
                   >
                     {formData.name || 'Nombre de tu Rotisería'}
                   </h3>
@@ -1002,7 +1002,7 @@ export default function SettingsPage() {
                       : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)]'
                   }`}
                 >
-                  <p className="text-xs font-bold font-rustic text-white">Rústica Tradicional</p>
+                  <p className="text-xs font-bold font-preview-serif text-white">Rústica Tradicional</p>
                   <p className="text-[10px] text-[color:var(--store-text-faint)]">Serifada, cálida</p>
                 </button>
 
@@ -1015,8 +1015,34 @@ export default function SettingsPage() {
                       : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)]'
                   }`}
                 >
-                  <p className="text-xs font-bold font-sans text-white">Moderna & Limpia</p>
+                  <p className="text-xs font-bold font-preview-sans text-white">Moderna & Limpia</p>
                   <p className="text-[10px] text-[color:var(--store-text-faint)]">Sans-serif, ágil</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, font_style: 'urban' })}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    formData.font_style === 'urban'
+                      ? 'bg-[color:var(--store-subtle-bg)] border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/30'
+                      : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)]'
+                  }`}
+                >
+                  <p className="text-xs font-bold font-preview-urban text-white uppercase">Urbana & Burger</p>
+                  <p className="text-[10px] text-[color:var(--store-text-faint)]">Impacto, street food</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, font_style: 'classic' })}
+                  className={`p-2.5 rounded-2xl border text-left transition-all ${
+                    formData.font_style === 'classic'
+                      ? 'bg-[color:var(--store-subtle-bg)] border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/30'
+                      : 'bg-[color:var(--store-subtle-bg)] border-[color:var(--store-border)]'
+                  }`}
+                >
+                  <p className="text-xs font-bold font-preview-classic text-white">Comanda & Bodegón</p>
+                  <p className="text-[10px] text-[color:var(--store-text-faint)]">Estilo carta clásica</p>
                 </button>
               </div>
             </div>

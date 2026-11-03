@@ -18,7 +18,7 @@ export interface RestaurantInfo {
   primary_color?: string
   secondary_color?: string
   theme_style?: 'rustic' | 'midnight' | 'bodegon' | 'espresso' | 'olive'
-  font_style?: 'serif' | 'sans'
+  font_style?: 'serif' | 'sans' | 'urban' | 'classic'
   announcement_banner?: string
   announcement_enabled?: boolean
   estimated_delivery_time?: string

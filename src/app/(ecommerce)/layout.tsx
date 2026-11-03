@@ -36,7 +36,7 @@ export default function EcommerceLayout({ children }: { children: React.ReactNod
   const primaryColor = restaurant?.primary_color || '#e59324'
   const secondaryColor = restaurant?.secondary_color || '#d34e2c'
   const themeClass = restaurant?.theme_style ? `theme-${restaurant.theme_style}` : 'theme-rustic'
-  const fontClass = restaurant?.font_style === 'sans' ? 'font-modern' : 'font-rustic'
+  const fontClass = `font-style-${restaurant?.font_style || 'serif'}`
   const announcementText = restaurant?.announcement_banner || '🔥 Horno encendido y cocina despachando pedidos en vivo'
   const showAnnouncement = restaurant?.announcement_enabled !== false
   const deliveryTime = restaurant?.estimated_delivery_time || '35-45 min'
